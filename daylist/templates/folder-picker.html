@@ -1,0 +1,25 @@
+<form class="menu-panel folder-options" method="post" aria-label="Choose a folder">
+  {% csrf_token %}
+  <input type="hidden" name="task_id" value="{{ selected.pk }}">
+  <input type="hidden" name="action" value="move-task">
+  <label class="folder-search">
+    <svg aria-hidden="true"><use href="#icon-search"/></svg>
+    <span class="sr-only">Search folders</span>
+    <input type="search" placeholder="Search folders…" autocomplete="off">
+  </label>
+  {{ folder_form.task_list.errors }}
+  <div class="folder-results">
+    <button class="folder-option" name="task_list" value="" {% if not selected.task_list_id %}aria-current="true"{% endif %}>
+      <svg aria-hidden="true"><use href="#icon-list"/></svg><span>No folder</span>
+      {% if not selected.task_list_id %}<svg class="folder-check" aria-hidden="true"><use href="#icon-check"/></svg>{% endif %}
+    </button>
+    {% for folder in lists %}
+      <button class="folder-option" name="task_list" value="{{ folder.pk }}" {% if selected.task_list_id == folder.pk %}aria-current="true"{% endif %}>
+        <svg class="folder-color" data-color="{{ folder.color }}" aria-hidden="true"><use href="#icon-list"/></svg>
+        <span>{{ folder.name }}</span>
+        {% if selected.task_list_id == folder.pk %}<svg class="folder-check" aria-hidden="true"><use href="#icon-check"/></svg>{% endif %}
+      </button>
+    {% endfor %}
+    <p class="folder-no-results" role="status" hidden>No matching folders</p>
+  </div>
+</form>

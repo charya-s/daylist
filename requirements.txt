@@ -1,0 +1,3 @@
+Django>=5.2.8,<5.3
+argon2-cffi>=23.1,<26
+gunicorn>=23,<24

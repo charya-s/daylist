@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Daylist{% endblock %}
+{% block content %}
+<main class="login">
+  <p class="eyebrow">PRIVATE WORKSPACE</p>
+  <h1>Sign in</h1>
+  <p class="subtitle">Open your task list on this device.</p>
+  <form method="post" class="panel login-form">
+    {% csrf_token %}
+    {% if limited %}<p class="error" role="alert">Too many attempts. Try again in a minute.</p>{% endif %}
+    {{ form.non_field_errors }}
+    <label for="{{ form.username.id_for_label }}">Username</label>
+    {{ form.username }}
+    {{ form.username.errors }}
+    <label for="{{ form.password.id_for_label }}">Password</label>
+    {{ form.password }}
+    {{ form.password.errors }}
+    <button class="primary">Sign in</button>
+  </form>
+</main>
+{% endblock %}

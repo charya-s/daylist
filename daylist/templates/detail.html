@@ -1,0 +1,97 @@
+<aside class="detail-pane" aria-labelledby="detail-heading">
+  <div class="detail-top">
+    <h2 id="detail-heading" class="sr-only">Task details</h2>
+    <div class="detail-actions">
+      <form method="post" class="priority-form">
+        {% csrf_token %}
+        <input type="hidden" name="task_id" value="{{ selected.pk }}">
+        <button class="icon-button priority-toggle" name="action" value="{% if selected.flagged %}unflag{% else %}flag{% endif %}" aria-label="Priority flag" aria-pressed="{{ selected.flagged|yesno:'true,false' }}" title="{% if selected.flagged %}Remove priority flag{% else %}Flag as priority{% endif %}"><svg aria-hidden="true"><use href="#icon-flag"/></svg></button>
+      </form>
+    </div>
+    <a class="icon-button close-detail" href="{{ view_url }}" aria-label="Close task details" title="Close task details"><svg><use href="#icon-close"/></svg></a>
+    <a class="back-detail quiet" href="{{ view_url }}"><svg><use href="#icon-arrow"/></svg> Back to tasks</a>
+  </div>
+  <div class="detail-content">
+    <details class="title-editor" data-dismiss-outside {% if title_form.errors %}open{% endif %}>
+      <summary><h2 class="task-detail-title">{{ selected.title }}</h2></summary>
+      <form class="menu-panel title-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="task_id" value="{{ selected.pk }}">
+        <label class="sr-only" for="{{ title_form.title.id_for_label }}">Task name</label>
+        {{ title_form.title }}{{ title_form.title.errors }}
+        <button class="primary" name="action" value="rename-task">Rename task</button>
+      </form>
+    </details>
+    <div class="detail-meta">
+      {% include "schedule.html" with task=selected show_calendar=True %}
+      <details class="folder-picker" data-dismiss-outside {% if folder_form.errors %}open{% endif %}>
+        <summary class="schedule-trigger" aria-label="Move task to a folder">
+          <svg aria-hidden="true"><use href="#icon-list"/></svg>{{ selected.task_list.name|default:"No folder" }}
+        </summary>
+        {% include "folder-picker.html" %}
+      </details>
+    </div>
+
+
+    <section class="steps" aria-labelledby="steps-heading">
+      <h2 id="steps-heading" class="sr-only">Subtasks</h2>
+      {% if steps %}
+        <ul class="task-list step-list">
+          {% for step, form in steps %}
+          <li class="step{% if step.done %} done{% endif %}">
+            <div class="step-row">
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="task_id" value="{{ selected.pk }}">
+                <input type="hidden" name="step_id" value="{{ step.pk }}">
+                <button class="check" name="action" value="{% if step.done %}reopen-step{% else %}complete-step{% endif %}" aria-label="{% if step.done %}Reopen{% else %}Complete{% endif %} {{ step.title }}"><span>{% if step.done %}<svg><use href="#icon-check"/></svg>{% endif %}</span></button>
+              </form>
+              <span class="task-title">{{ step.title }}</span>
+              {% if step.due %}<time datetime="{{ step.due|date:'Y-m-d' }}">{{ step.due|date:"M j" }}</time>{% endif %}
+              <details class="step-edit" data-dismiss-outside {% if form.errors %}open{% endif %}>
+                <summary class="icon-button" aria-label="Edit subtask {{ step.title }}" title="Edit subtask"><svg><use href="#icon-settings"/></svg></summary>
+                <div class="menu-panel">
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="task_id" value="{{ selected.pk }}">
+                    <input type="hidden" name="step_id" value="{{ step.pk }}">
+                    {{ form.as_p }}
+                    <button class="primary" name="action" value="edit-step">Save subtask</button>
+                  </form>
+                  <form method="post" data-confirm="Delete this subtask?">
+                    {% csrf_token %}
+                    <input type="hidden" name="task_id" value="{{ selected.pk }}">
+                    <input type="hidden" name="step_id" value="{{ step.pk }}">
+                    <button class="quiet danger" name="action" value="delete-step">Delete subtask</button>
+                  </form>
+                </div>
+              </details>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      <form class="add-step" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="task_id" value="{{ selected.pk }}">
+        <input type="hidden" name="action" value="add-step">
+        <button class="composer-submit" aria-label="Add subtask"><svg><use href="#icon-plus"/></svg></button>
+        <label class="sr-only" for="{{ add_subtask_form.title.id_for_label }}">New subtask</label>
+        <input name="{{ add_subtask_form.title.html_name }}" id="{{ add_subtask_form.title.id_for_label }}" placeholder="Add a subtask…" maxlength="200" required value="{{ add_subtask_form.title.value|default_if_none:'' }}">
+        {{ add_subtask_form.errors }}
+      </form>
+    </section>
+    <form class="task-notes" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="task_id" value="{{ selected.pk }}">
+      <label class="sr-only" for="{{ notes_form.notes.id_for_label }}">Notes</label>
+      {{ notes_form.notes }}{{ notes_form.notes.errors }}
+      <button class="quiet notes-save" name="action" value="save-notes">Save notes</button>
+    </form>
+    <form class="delete-task" method="post" data-confirm="Delete this task and its subtasks?">
+          {% csrf_token %}
+          <input type="hidden" name="task_id" value="{{ selected.pk }}">
+          <button class="quiet danger" name="action" value="delete">Delete task</button>
+        </form>
+  </div>
+</aside>

@@ -1,0 +1,81 @@
+<script>
+(() => {
+  const parse = value => new Date(value + "T00:00:00Z");
+  const monthLabel = new Intl.DateTimeFormat(undefined, {
+    month: "long", year: "numeric", timeZone: "UTC",
+  });
+  const dayLabel = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "full", timeZone: "UTC",
+  });
+
+  for (const form of document.querySelectorAll(".date-picker")) {
+    const disclosure = form.closest("details");
+    const input = form.elements.due;
+    const calendar = form.querySelector(".calendar");
+    const heading = form.querySelector(".calendar-month");
+    const days = form.querySelector(".calendar-days");
+    const previous = form.querySelector('[data-month="-1"]');
+    const next = form.querySelector('[data-month="1"]');
+    const today = form.dataset.today;
+    const original = input.value;
+    let month;
+
+    function render() {
+      heading.textContent = monthLabel.format(month);
+      previous.disabled = month.getUTCFullYear() === 1 && month.getUTCMonth() === 0;
+      next.disabled = month.getUTCFullYear() === 9999 && month.getUTCMonth() === 11;
+      const cursor = new Date(month);
+      cursor.setUTCDate(1 - ((month.getUTCDay() + 6) % 7));
+      const fragment = document.createDocumentFragment();
+      for (let index = 0; index < 42; index++, cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+        if (cursor.getUTCFullYear() < 1 || cursor.getUTCFullYear() > 9999) {
+          fragment.append(document.createElement("span"));
+          continue;
+        }
+        const iso = cursor.toISOString().slice(0, 10);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.day = iso;
+        button.textContent = cursor.getUTCDate();
+        button.setAttribute("aria-label", dayLabel.format(cursor));
+        button.setAttribute("aria-pressed", String(iso === input.value));
+        if (iso === today) button.setAttribute("aria-current", "date");
+        if (cursor.getUTCMonth() !== month.getUTCMonth()) button.classList.add("other-month");
+        fragment.append(button);
+      }
+      days.replaceChildren(fragment);
+    }
+
+    function showMonth(date) {
+      month = parse(date);
+      month.setUTCDate(1);
+      render();
+    }
+
+    disclosure.addEventListener("toggle", () => {
+      if (disclosure.open) {
+        input.value = original;
+        showMonth(original || today);
+      }
+    });
+    calendar.addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.dataset.month) {
+        month.setUTCMonth(month.getUTCMonth() + Number(button.dataset.month));
+        render();
+      } else if (button.dataset.shortcut) {
+        input.value = form.dataset[button.dataset.shortcut];
+        showMonth(input.value);
+      } else if (button.dataset.day) {
+        input.value = button.dataset.day;
+        showMonth(input.value);
+        days.querySelector('[data-day="' + input.value + '"]').focus();
+      }
+    });
+    input.closest("label").hidden = true;
+    calendar.hidden = false;
+    if (disclosure.open) showMonth(original || today);
+  }
+})();
+</script>

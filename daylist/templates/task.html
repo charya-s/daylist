@@ -1,0 +1,18 @@
+<li class="task{% if task.done %} done{% endif %}{% if task.pk == selected.pk %} selected{% endif %}">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="task_id" value="{{ task.pk }}">
+    <button class="check" name="action" value="{% if task.done %}reopen{% else %}complete{% endif %}" aria-label="{% if task.done %}Reopen{% else %}Complete{% endif %} {{ task.title }}">
+      <span>{% if task.done %}<svg><use href="#icon-check"/></svg>{% endif %}</span>
+    </button>
+  </form>
+  <a class="task-link" href="{{ view_url }}?task={{ task.pk }}" {% if task.pk == selected.pk %}aria-current="true"{% endif %}>
+    <span class="task-title">{{ task.title }}</span>
+    <span class="task-meta">
+      {% if task.flagged %}<span class="flag-mark" role="img" aria-label="Priority"><svg aria-hidden="true"><use href="#icon-flag"/></svg></span>{% endif %}
+      {% if task.step_count %}<span aria-label="{{ task.done_steps }} of {{ task.step_count }} subtasks complete">{{ task.done_steps }}/{{ task.step_count }}</span>{% endif %}
+      {% if task.task_list and not active_list %}<span class="list-tag">{{ task.task_list.name }}</span>{% endif %}
+    </span>
+  </a>
+  {% include "schedule.html" with show_icon=False %}
+</li>

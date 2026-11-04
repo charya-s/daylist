@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Daylist{% endblock %}</title>
+  <script>
+    try {
+      const saved = localStorage.getItem("daylist-theme");
+      if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+    } catch {}
+  </script>
+  <style>{% include "theme.css" %}</style>
+</head>
+<body>{% include "icons.html" %}
+  {% block header %}<header class="topbar">
+    <div class="top-inner">
+      <a href="/" class="brand"><span class="brand-mark" aria-hidden="true">✓</span>Daylist</a>
+      <div class="header-actions">
+        <button type="button" class="quiet theme" id="theme" aria-label="Dark theme" aria-pressed="false">
+          <span aria-hidden="true" id="theme-icon">☾</span><span>Theme</span>
+        </button>
+        {% if request.user.is_authenticated %}
+          <form method="post" action="{% url 'sign-out' %}">{% csrf_token %}<button class="quiet">Sign out</button></form>
+        {% endif %}
+      </div>
+    </div>
+  </header>{% endblock %}
+  {% block content %}{% endblock %}
+  <script>
+    const root = document.documentElement;
+    const themeButton = document.getElementById("theme");
+    const systemTheme = matchMedia("(prefers-color-scheme: dark)");
+    function isDark() { return root.dataset.theme ? root.dataset.theme === "dark" : systemTheme.matches; }
+    function updateToggle() {
+      themeButton.setAttribute("aria-pressed", String(isDark()));
+      document.getElementById("theme-icon").textContent = isDark() ? "☀" : "☾";
+    }
+    themeButton.addEventListener("click", () => {
+      root.dataset.theme = isDark() ? "light" : "dark";
+      try { localStorage.setItem("daylist-theme", root.dataset.theme); } catch {}
+      updateToggle();
+    });
+    systemTheme.addEventListener("change", updateToggle);
+    updateToggle();
+    document.addEventListener("click", event => {
+      const path = event.composedPath();
+      for (const popup of document.querySelectorAll("details[data-dismiss-outside][open]")) {
+        if (!path.includes(popup)) popup.open = false;
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key !== "Escape") return;
+      const popup = event.target.closest("details[data-dismiss-outside][open]");
+      if (popup) {
+        popup.open = false;
+        popup.querySelector("summary").focus();
+      }
+    });
+    const notes = document.querySelector(".task-notes textarea");
+    if (notes) {
+      const save = notes.form.querySelector(".notes-save");
+      const updateSave = () => {
+        save.hidden = notes.value === notes.defaultValue && !notes.form.querySelector(".errorlist");
+      };
+      notes.addEventListener("input", updateSave);
+      updateSave();
+    }
+    document.querySelectorAll("[data-confirm]").forEach(form => {
+      form.addEventListener("submit", event => {
+        if (!confirm(form.dataset.confirm)) event.preventDefault();
+      });
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
+

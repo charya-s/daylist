@@ -1,0 +1,31 @@
+<dialog id="folder-dialog" class="folder-dialog" aria-labelledby="folder-dialog-title" {% if add_list_form.errors %}data-show-errors{% endif %}>
+  <form method="post" class="folder-dialog-form">
+    {% csrf_token %}
+    <div class="folder-dialog-header">
+      <h2 id="folder-dialog-title">New folder</h2>
+      <button type="button" class="icon-button" data-close-folder aria-label="Close"><svg aria-hidden="true"><use href="#icon-close"/></svg></button>
+    </div>
+    {{ add_list_form.non_field_errors }}
+    <label class="sr-only" for="{{ add_list_form.name.id_for_label }}">Folder name</label>
+    <input type="text" name="{{ add_list_form.name.html_name }}" id="{{ add_list_form.name.id_for_label }}"
+           maxlength="80" required autofocus placeholder="e.g. Personal" value="{{ add_list_form.name.value|default_if_none:'' }}">
+    {{ add_list_form.name.errors }}
+    <fieldset>
+      <legend>Color</legend>
+      <div class="folder-swatches">
+        {% for radio in add_list_form.color %}
+          <label class="folder-swatch" title="{{ radio.choice_label }}">
+            {{ radio.tag }}
+            <span class="swatch-mark" data-color="{{ radio.data.value }}" aria-hidden="true"></span>
+            <span class="sr-only">{{ radio.choice_label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      {{ add_list_form.color.errors }}
+    </fieldset>
+    <div class="folder-dialog-footer">
+      <button type="button" class="quiet" data-close-folder>Cancel</button>
+      <button class="primary" name="action" value="add-list">Add folder</button>
+    </div>
+  </form>
+</dialog>

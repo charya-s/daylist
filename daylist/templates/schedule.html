@@ -1,0 +1,34 @@
+<details class="schedule-menu" data-dismiss-outside>
+  <summary class="schedule-trigger{% if task.due and task.due < today and not task.done %} danger{% endif %}" aria-label="Reschedule {{ task.title }}">
+    {% if show_calendar or not task.due %}<svg aria-hidden="true"><use href="#icon-today"/></svg>{% endif %}
+    {% if task.due %}<time datetime="{{ task.due|date:'Y-m-d' }}">{{ task.due|date:"M j" }}</time>{% elif show_calendar %}<span>No date</span>{% endif %}
+  </summary>
+  <form class="menu-panel date-picker" method="post" aria-label="Choose a due date"
+        data-today="{{ today|date:'Y-m-d' }}" data-tomorrow="{{ quick_dates.tomorrow|date:'Y-m-d' }}"
+        data-next-week="{{ next_week|date:'Y-m-d' }}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="reschedule">
+    <input type="hidden" name="task_id" value="{{ task.pk }}">
+    <label class="native-date">Due date
+      <input type="date" name="due" value="{{ task.due|date:'Y-m-d' }}">
+    </label>
+    <div class="calendar" hidden>
+      <div class="calendar-shortcuts" aria-label="Date shortcuts">
+        <button type="button" data-shortcut="today">Today</button>
+        <button type="button" data-shortcut="tomorrow">Tomorrow</button>
+        <button type="button" data-shortcut="nextWeek">Next week</button>
+      </div>
+      <div class="calendar-heading">
+        <span class="calendar-month" aria-live="polite"></span>
+        <button type="button" data-month="-1" aria-label="Previous month">‹</button>
+        <button type="button" data-month="1" aria-label="Next month">›</button>
+      </div>
+      <div class="calendar-week" aria-hidden="true"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+      <div class="calendar-days" role="group" aria-label="Days of the month"></div>
+    </div>
+    <div class="calendar-footer">
+      <button class="quiet" name="schedule" value="no-date">Clear</button>
+      <button class="primary" name="schedule" value="custom">Apply</button>
+    </div>
+  </form>
+</details>

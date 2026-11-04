@@ -1,0 +1,15 @@
+<script>
+(() => {
+  const trigger = document.getElementById("add-folder");
+  const dialog = document.getElementById("folder-dialog");
+  trigger.addEventListener("click", () => dialog.showModal());
+  for (const button of dialog.querySelectorAll("[data-close-folder]")) {
+    button.addEventListener("click", () => dialog.close());
+  }
+  dialog.addEventListener("click", event => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog.addEventListener("close", () => trigger.focus());
+  if (dialog.hasAttribute("data-show-errors")) dialog.showModal();
+})();
+</script>
