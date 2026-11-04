@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, such as v1.0.0
+        type: string
+        required: true
+
+concurrency:
+  group: daylist-release-${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -13,11 +22,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - name: Check out the release
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          ref: ${{ format('refs/tags/{0}', inputs.tag || github.ref_name) }}
 
       - name: Set up ARM emulation
         uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
@@ -31,15 +43,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          version="${RELEASE_TAG#v}"
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           image="ghcr.io/${GITHUB_REPOSITORY,,}:$version"
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker buildx build --platform linux/amd64,linux/arm64 --push \
             --tag "$image" \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.version=$version" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.revision=$(git rev-parse HEAD)" \
             --label "org.opencontainers.image.licenses=MIT" .
           echo "DAYLIST_IMAGE=$image" >> "$GITHUB_ENV"
 
@@ -63,6 +75,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/daylist-install/compose.yaml" \
-            --verify-tag --title "Daylist $GITHUB_REF_NAME" \
+          gh release create "$RELEASE_TAG" "$RUNNER_TEMP/daylist-install/compose.yaml" \
+            --verify-tag --title "Daylist $RELEASE_TAG" \
             --notes "Install with the attached compose.yaml. See the README for the secret and account setup."
