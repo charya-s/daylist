@@ -16,7 +16,7 @@ Today shows tasks whose due date matches the configured time zone. The theme fol
 ## Install with Docker
 
 1. Download `compose.yaml` from the [latest release](https://github.com/charya-s/daylist/releases/latest) into a new directory.
-2. Create a `.env` file next to it and set `DJANGO_SECRET_KEY` to a private random value of at least 50 characters. For a local trial, also add `LOCAL_HTTP=1`. The app listens on localhost by default. For public access, follow the HTTPS setup below.
+2. Create a `.env` file next to it and set `DJANGO_SECRET_KEY` to a private random value of at least 50 characters. The app listens on localhost by default. For public access, follow the HTTPS setup below.
 3. From that directory, run:
 
    ```sh
@@ -51,7 +51,11 @@ Use the repository's `compose.yaml` with `docker compose up -d --build`. Copy `.
 
 ## Serve it on your domain
 
-Set `LOCAL_HTTP=0`, `APP_HOSTS=tasks.example.com` (replace with your domain), and `APP_TIME_ZONE` to your IANA time zone if it differs from Asia/Singapore. Point DNS to your server. The included Compose file binds the app to the host's loopback address. On the same host, configure a reverse proxy that terminates HTTPS and overwrites the forwarded protocol header. For example, add this to your host's Caddyfile and reload Caddy:
+Set `APP_HOSTS=tasks.example.com` (replace with your hostname) and set `APP_TIME_ZONE` if needed. Point DNS or DDNS to your server. Configure your reverse proxy to handle TLS and HTTP-to-HTTPS redirects, preserve the original host, and overwrite `X-Forwarded-Proto` with the browser-facing scheme. Daylist uses that header to mark cookies Secure for HTTPS requests.
+
+The included Compose file binds the app to the host's loopback address. If your proxy runs in Docker on the same server, put it and Daylist on a shared Docker network, then point the proxy to Daylist's network name on HTTP port 8000. In Nginx Proxy Manager, enable Force SSL for the proxy host. Keep Daylist's backend port private.
+
+For a proxy running directly on the host, the loopback binding works as-is. For example, add this to your host's Caddyfile and reload Caddy:
 
 ```caddyfile
 tasks.example.com {

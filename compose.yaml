@@ -6,7 +6,6 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
       APP_HOSTS: ${APP_HOSTS:-localhost,127.0.0.1}
       APP_TIME_ZONE: ${APP_TIME_ZONE:-Asia/Singapore}
-      LOCAL_HTTP: ${LOCAL_HTTP:-0}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

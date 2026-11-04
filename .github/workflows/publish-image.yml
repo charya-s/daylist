@@ -64,7 +64,6 @@ jobs:
           cd "$install_dir"
           export DJANGO_SECRET_KEY="$(openssl rand -hex 32)"
           echo "::add-mask::$DJANGO_SECRET_KEY"
-          export LOCAL_HTTP=1
           trap 'docker compose down -v' EXIT
           docker compose up -d --wait
           curl --fail --silent --show-error --retry 15 --retry-all-errors --max-time 5 \

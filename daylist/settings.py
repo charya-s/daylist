@@ -4,7 +4,6 @@ from pathlib import Path
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 if len(SECRET_KEY) < 50:
     raise ValueError("DJANGO_SECRET_KEY must be at least 50 characters.")
-LOCAL_HTTP = os.environ.get("LOCAL_HTTP") == "1"
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get(
     "APP_HOSTS", "localhost,127.0.0.1"
 ).split(",") if host.strip()]
@@ -14,6 +13,7 @@ INSTALLED_APPS = ["django.contrib.auth", "django.contrib.contenttypes",
                   "django.contrib.sessions", "daylist"]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "daylist.middleware.secure_cookies",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -35,11 +35,8 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.Argon2PasswordHasher"]
 USE_TZ = True
 TIME_ZONE = os.environ.get("APP_TIME_ZONE", "Asia/Singapore")
 LOGIN_URL = "/sign-in/"
-SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = not LOCAL_HTTP
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 7
-SECURE_SSL_REDIRECT = not LOCAL_HTTP
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_HSTS_SECONDS = 0 if LOCAL_HTTP else 86400
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
 
