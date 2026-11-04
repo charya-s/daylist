@@ -8,8 +8,8 @@ Today shows tasks whose due date matches the configured time zone. The theme fol
 
 <table>
   <tr>
-    <td width="50%" valign="top"><a href="docs/screenshots/daylist-light.png"><img src="docs/screenshots/daylist-light.png" width="100%" alt="Daylist in light mode showing example tasks grouped by due date, with notes and subtasks open for a selected task"></a></td>
-    <td width="50%" valign="top"><a href="docs/screenshots/daylist-dark.png"><img src="docs/screenshots/daylist-dark.png" width="100%" alt="Daylist in dark mode showing the Studio folder and the calendar for a selected task"></a></td>
+    <td width="50%" valign="top"><a href="docs/screenshots/daylist-light.jpg"><img src="docs/screenshots/daylist-light.jpg" width="100%" alt="Daylist in light mode showing example tasks grouped by due date, with notes and subtasks open for a selected task"></a></td>
+    <td width="50%" valign="top"><a href="docs/screenshots/daylist-dark.jpg"><img src="docs/screenshots/daylist-dark.jpg" width="100%" alt="Daylist in dark mode showing the Studio folder and the calendar for a selected task"></a></td>
   </tr>
 </table>
 
