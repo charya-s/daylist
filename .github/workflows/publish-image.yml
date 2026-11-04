@@ -67,7 +67,7 @@ jobs:
           export LOCAL_HTTP=1
           trap 'docker compose down -v' EXIT
           docker compose up -d --wait
-          curl --fail --silent --show-error --retry 15 --retry-connrefused \
+          curl --fail --silent --show-error --retry 15 --retry-all-errors --max-time 5 \
             --retry-delay 2 http://127.0.0.1:8000/sign-in/ > /dev/null
           docker compose exec -T app python manage.py migrate --check
 
