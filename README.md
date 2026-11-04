@@ -6,6 +6,13 @@ Click a task date or calendar icon to move it to Today, Tomorrow, Next week (sev
 
 Today shows tasks whose due date matches the configured time zone. The theme follows your system until you choose light or dark in the sidebar. That choice stays in the current browser.
 
+<table>
+  <tr>
+    <td width="50%" valign="top"><a href="docs/screenshots/daylist-light.png"><img src="docs/screenshots/daylist-light.png" width="100%" alt="Daylist in light mode showing example tasks grouped by due date, with notes and subtasks open for a selected task"></a></td>
+    <td width="50%" valign="top"><a href="docs/screenshots/daylist-dark.png"><img src="docs/screenshots/daylist-dark.png" width="100%" alt="Daylist in dark mode showing the Studio folder and the calendar for a selected task"></a></td>
+  </tr>
+</table>
+
 ## Install with Docker
 
 1. Download `compose.yaml` from the [latest release](https://github.com/charya-s/daylist/releases/latest) into a new directory.
