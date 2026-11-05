@@ -92,3 +92,7 @@ docker compose up -d
 
 Sign in and confirm that your tasks and dates match the backup.
 
+
+## Release notes
+
+See [docs/releases](docs/releases) for the changes included in each version.
