@@ -5,7 +5,7 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 if len(SECRET_KEY) < 50:
     raise ValueError("DJANGO_SECRET_KEY must be at least 50 characters.")
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get(
-    "APP_HOSTS", "localhost,127.0.0.1"
+    "APP_HOSTS", "*"
 ).split(",") if host.strip()]
 
 ROOT_URLCONF = "daylist.views"

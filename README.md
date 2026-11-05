@@ -16,14 +16,14 @@ Today shows tasks whose due date matches the configured time zone. The theme fol
 ## Install with Docker
 
 1. Download `compose.yaml` from the [latest release](https://github.com/charya-s/daylist/releases/latest) into a new directory.
-2. Create a `.env` file next to it and set `DJANGO_SECRET_KEY` to a private random value of at least 50 characters. The app listens on localhost by default. For public access, follow the HTTPS setup below.
+2. Create a `.env` file next to it and set `DJANGO_SECRET_KEY` to a private random value of at least 50 characters. The app is available on port 8000 at your server's IP address; no hostname configuration is needed. For public access, follow the HTTPS setup below.
 3. From that directory, run:
 
    ```sh
    docker compose up -d
    ```
 
-4. Once the sign-in page is available, create your account and sign in at http://localhost:8000 for a local trial:
+4. Once the sign-in page is available, create your account and sign in at `http://YOUR_SERVER_IP:8000` (or http://localhost:8000 on the server itself):
 
    ```sh
    docker compose exec app python manage.py createsuperuser
@@ -43,7 +43,7 @@ Save the generated value as `DJANGO_SECRET_KEY=your-generated-value` in `.env` a
 
 ### Upgrade
 
-Replace your install's `compose.yaml` with the file from the new release, keeping the same directory and `.env`. Run `docker compose pull` and then `docker compose up -d`. The app applies database migrations at startup. Back up the data volume before upgrading.
+Replace your install's `compose.yaml` with the file from the new release, keeping the same directory and `.env`. Run `docker compose pull` and then `docker compose up -d`. The app applies database migrations at startup. Back up the data volume before upgrading. If upgrading from a version with restricted hostnames, remove `APP_HOSTS` from `.env` to use the new default of accepting any hostname.
 
 ### Build from source
 
@@ -51,11 +51,11 @@ Use the repository's `compose.yaml` with `docker compose up -d --build`. Copy `.
 
 ## Serve it on your domain
 
-Set `APP_HOSTS=tasks.example.com` (replace with your hostname) and set `APP_TIME_ZONE` if needed. Point DNS or DDNS to your server. Configure your reverse proxy to handle TLS and HTTP-to-HTTPS redirects, preserve the original host, and overwrite `X-Forwarded-Proto` with the browser-facing scheme. Daylist uses that header to mark cookies Secure for HTTPS requests.
+Daylist accepts any hostname or IP address by default. To restrict access by hostname, optionally set `APP_HOSTS=tasks.example.com` or a comma-separated list of allowed hostnames and IP addresses. Set `APP_TIME_ZONE` if needed. Point DNS or DDNS to your server. Configure your reverse proxy to handle TLS and HTTP-to-HTTPS redirects, preserve the original host, and overwrite `X-Forwarded-Proto` with the browser-facing scheme. Daylist uses that header to mark cookies Secure for HTTPS requests.
 
-The included Compose file binds the app to the host's loopback address. If your proxy runs in Docker on the same server, put it and Daylist on a shared Docker network, then point the proxy to Daylist's network name on HTTP port 8000. In Nginx Proxy Manager, enable Force SSL for the proxy host. Keep Daylist's backend port private.
+The included Compose file publishes port 8000 on all network interfaces. When using a reverse proxy, keep the backend port private: for a proxy running on the host, change the port mapping to `"127.0.0.1:8000:8000"`. If your proxy runs in Docker on the same server, put it and Daylist on a shared Docker network, remove the `ports` mapping, then point the proxy to Daylist's network name on HTTP port 8000. In Nginx Proxy Manager, enable Force SSL for the proxy host. Keep Daylist's backend port private.
 
-For a proxy running directly on the host, the loopback binding works as-is. For example, add this to your host's Caddyfile and reload Caddy:
+For a proxy running directly on the host, use the loopback mapping above. For example, add this to your host's Caddyfile and reload Caddy:
 
 ```caddyfile
 tasks.example.com {
