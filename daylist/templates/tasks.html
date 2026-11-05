@@ -44,6 +44,29 @@
         {% endif %}
         <span class="open-count">{% if query %}{{ result_count }} result{{ result_count|pluralize }} · {% endif %}{{ view_count }} open</span>
       </div>
+      <form class="task-filters" method="get" action="{{ view_path }}" role="search">
+        <details class="search-tools" data-dismiss-outside>
+          <summary class="icon-button search-trigger" aria-label="Search in {{ view_title }}" title="Search tasks">
+            <svg aria-hidden="true"><use href="#icon-search"/></svg>
+            {% if query %}<span class="active-query">{{ query }}</span>{% endif %}
+          </summary>
+          <div class="menu-panel task-search-panel">
+            <label class="sr-only" for="task-search">Search in {{ view_title }}</label>
+            <input type="search" name="q" id="task-search" maxlength="200" placeholder="Search tasks…" value="{{ query }}">
+            <button class="icon-button" type="submit" aria-label="Search"><svg aria-hidden="true"><use href="#icon-arrow"/></svg></button>
+          </div>
+        </details>
+        {% if query %}<a class="icon-button clear-search" href="{{ clear_url }}" aria-label="Clear search" title="Clear search"><svg aria-hidden="true"><use href="#icon-close"/></svg></a>{% endif %}
+        {% if matrix %}
+          <label class="sr-only" for="matrix-folder">Filter by folder</label>
+          <select name="folder" id="matrix-folder">
+            <option value="">All folders</option>
+            <option value="none" {% if matrix_folder == 'none' %}selected{% endif %}>No folder</option>
+            {% for item in lists %}<option value="{{ item.pk }}" {% if matrix_folder == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
+          </select>
+          <noscript><button class="quiet" type="submit">Apply</button></noscript>
+        {% endif %}
+      </form>
       {% if rename_form %}
         <details class="list-menu" data-dismiss-outside>
           <summary class="icon-button" aria-label="Manage folder" title="Manage folder"><svg><use href="#icon-settings"/></svg></summary>
@@ -56,24 +79,6 @@
         </details>
       {% endif %}
     </div>
-
-    <form class="task-filters" method="get" action="{{ view_path }}" role="search">
-      <div class="task-search">
-        <label class="sr-only" for="task-search">Search in {{ view_title }}</label>
-        <svg aria-hidden="true"><use href="#icon-search"/></svg>
-        <input type="search" name="q" id="task-search" maxlength="200" placeholder="Search tasks, notes, subtasks…" value="{{ query }}">
-      </div>
-      {% if matrix %}
-        <label class="sr-only" for="matrix-folder">Filter by folder</label>
-        <select name="folder" id="matrix-folder">
-          <option value="">All folders</option>
-          <option value="none" {% if matrix_folder == 'none' %}selected{% endif %}>No folder</option>
-          {% for item in lists %}<option value="{{ item.pk }}" {% if matrix_folder == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
-        </select>
-      {% endif %}
-      <button class="quiet" type="submit">Search</button>
-      {% if query %}<a class="quiet clear-search" href="{{ clear_url }}">Clear</a>{% endif %}
-    </form>
 
     <form class="quick-add" method="post" data-today="{{ quick_dates.today|date:'Y-m-d' }}" data-tomorrow="{{ quick_dates.tomorrow|date:'Y-m-d' }}" data-next-week="{{ next_week|date:'Y-m-d' }}">
       {% csrf_token %}

@@ -5,7 +5,7 @@ A task workspace with All, Today, and custom folders. Each account has its own p
 Click a task date or calendar icon to move it to Today, Tomorrow, Next week (seven days from today), or No date. In the quick-add field, finish a title with today, tomorrow, or next week to see a date suggestion. Dismiss the suggestion to keep the words in the title. Use the flag in task details to mark a task as a priority.
 
 - **Matrix:** organize open tasks by importance and urgency. Tasks are initially sorted using flags and due dates. Drag a card to any quadrant to save your own placement without changing its date or flag. Use the card’s Move menu or Matrix placement in task details to move it by keyboard or restore Automatic sorting. Touch users can drag the grip. Filter by folder to focus the board.
-- **Search:** use the search box in All, Today, a folder, or Matrix to find titles, notes, subtasks, and folder names in that view. Press Enter or click Search.
+- **Search:** click the search icon beside the title in All, Today, a folder, or Matrix to find titles, notes, subtasks, and folder names in that view. Press Enter to search.
 - **Repeating tasks:** choose a daily, weekly, monthly, or yearly schedule in task details, with an interval from 1 to 365. Completing an occurrence creates the next task with its notes, priority, folder, and fresh subtasks. Dates follow the scheduled cadence and skip missed occurrences; monthly and yearly schedules preserve the original day where possible. An undated task starts today. Clearing its due date stops repetition.
 
 Today shows tasks whose due date matches the configured time zone. The theme follows your system until you choose light or dark in the sidebar. That choice stays in the current browser.

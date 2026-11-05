@@ -118,6 +118,16 @@
     navigate(url.href);
   });
   window.addEventListener("popstate", () => navigate(location.href, "replace"));
+  document.addEventListener("toggle", event => {
+    if (event.target.matches(".search-tools[open]")) {
+      const input = event.target.querySelector("input[type=search]");
+      input.focus();
+      input.select();
+    }
+  }, true);
+  document.addEventListener("change", event => {
+    if (event.target.matches("#matrix-folder")) event.target.form.requestSubmit();
+  });
   document.addEventListener("submit", async event => {
     const form = event.target;
     const formURL = new URL(form.getAttribute("action") || location.href, location.href);
