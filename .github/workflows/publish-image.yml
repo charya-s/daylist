@@ -81,6 +81,11 @@ jobs:
           export DJANGO_SECRET_KEY="$(openssl rand -hex 32)"
           echo "::add-mask::$DJANGO_SECRET_KEY"
           trap 'docker compose down -v' EXIT
+          for attempt in {1..10}; do
+            if docker compose pull; then break; fi
+            if [ "$attempt" -eq 10 ]; then exit 1; fi
+            sleep 3
+          done
           docker compose up -d --wait
           curl --fail --silent --show-error --retry 15 --retry-all-errors --max-time 5 \
             --retry-delay 2 http://127.0.0.1:8000/sign-in/ > /dev/null
