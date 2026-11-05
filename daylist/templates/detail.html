@@ -33,6 +33,31 @@
     </div>
 
 
+    <details class="matrix-editor" data-dismiss-outside {% if matrix_form.errors %}open{% endif %}>
+      <summary class="quiet"><svg aria-hidden="true"><use href="#icon-matrix"/></svg>Matrix placement</summary>
+      <form class="matrix-settings-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="task_id" value="{{ selected.pk }}">
+        {{ matrix_form.as_p }}
+        <button class="primary" name="action" value="set-matrix">Save placement</button>
+      </form>
+    </details>
+
+    <details class="repeat-editor" data-dismiss-outside {% if repeat_form.errors %}open{% endif %}>
+      <summary class="quiet"><svg aria-hidden="true"><use href="#icon-repeat"/></svg>{{ selected.repeat_label }}</summary>
+      <form class="repeat-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="task_id" value="{{ selected.pk }}">
+        {{ repeat_form.non_field_errors }}
+        <label for="{{ repeat_form.repeat_every.id_for_label }}">Every</label>
+        <label class="sr-only" for="{{ repeat_form.repeat.id_for_label }}">Repeat frequency</label>
+        <div class="repeat-fields">{{ repeat_form.repeat_every }}{{ repeat_form.repeat }}</div>
+        {{ repeat_form.repeat.errors }}{{ repeat_form.repeat_every.errors }}
+        <p class="repeat-help">Repeats from its due date, or today if undated. Completing it creates the next task with notes and fresh subtasks. Missed dates are skipped. Clearing the due date stops repetition.</p>
+        <button class="primary" name="action" value="save-repeat">Save repeat</button>
+      </form>
+    </details>
+
     <section class="steps" aria-labelledby="steps-heading">
       <h2 id="steps-heading" class="sr-only">Subtasks</h2>
       {% if steps %}

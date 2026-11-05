@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class TaskList(models.Model):
@@ -27,6 +28,20 @@ class TaskList(models.Model):
 
 
 class Task(models.Model):
+    class MatrixQuadrant(models.TextChoices):
+        AUTO = "", "Automatic (flag and due date)"
+        DO = "do", "Do first"
+        SCHEDULE = "schedule", "Schedule"
+        BATCH = "batch", "Delegate or batch"
+        RECONSIDER = "reconsider", "Reconsider"
+
+    class Repeat(models.TextChoices):
+        NEVER = "", "Does not repeat"
+        DAILY = "daily", "Days"
+        WEEKLY = "weekly", "Weeks"
+        MONTHLY = "monthly", "Months"
+        YEARLY = "yearly", "Years"
+
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     due = models.DateField(null=True, blank=True, db_index=True)
@@ -35,6 +50,20 @@ class Task(models.Model):
                                   blank=True, related_name="tasks")
     notes = models.TextField(blank=True, default="")
     flagged = models.BooleanField(default=False)
+    matrix_quadrant = models.CharField(max_length=10, choices=MatrixQuadrant.choices, blank=True, default="")
+    repeat = models.CharField(max_length=7, choices=Repeat.choices, blank=True, default="")
+    repeat_every = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(365)])
+    repeat_anchor = models.DateField(null=True, blank=True)
+    next_occurrence = models.OneToOneField("self", on_delete=models.SET_NULL, null=True,
+                                          blank=True, related_name="previous_occurrence")
+
+
+    @property
+    def repeat_label(self):
+        if not self.repeat:
+            return "Does not repeat"
+        unit = {"daily": "day", "weekly": "week", "monthly": "month", "yearly": "year"}[self.repeat]
+        return f"Every {unit}" if self.repeat_every == 1 else f"Every {self.repeat_every} {unit}s"
 
 
 class Subtask(models.Model):

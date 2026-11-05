@@ -96,7 +96,7 @@
       if (previous) {
         restoreDrafts(previous.drafts);
         for (const group of document.querySelectorAll(".task-group")) {
-          if (previous.groups.has(group.dataset.group)) group.open = previous.groups.get(group.dataset.group);
+          if (previous.groups.has(group.dataset.group) && !group.querySelector(".task.selected")) group.open = previous.groups.get(group.dataset.group);
         }
       }
       document.querySelector(".sidebar nav").scrollTop = sidebarScroll;
@@ -113,7 +113,7 @@
     const link = event.target.closest(".workspace a[href]");
     if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
     const url = new URL(link.href);
-    if (url.origin !== location.origin || !/^\/(?:today\/|lists\/\d+\/)?$/.test(url.pathname)) return;
+    if (url.origin !== location.origin || !/^\/(?:today\/|matrix\/|lists\/\d+\/)?$/.test(url.pathname)) return;
     event.preventDefault();
     navigate(url.href);
   });
@@ -121,6 +121,14 @@
   document.addEventListener("submit", async event => {
     const form = event.target;
     const formURL = new URL(form.getAttribute("action") || location.href, location.href);
+    if (form.matches(".task-filters") && !event.defaultPrevented) {
+      event.preventDefault();
+      for (const [name, value] of new FormData(form)) {
+        if (String(value).trim()) formURL.searchParams.set(name, String(value).trim());
+      }
+      navigate(formURL.href);
+      return;
+    }
     if (event.defaultPrevented || form.method.toLowerCase() !== "post" ||
         !form.matches(".workspace form, #folder-dialog form") || formURL.pathname === "/sign-out/") return;
     event.preventDefault();
@@ -165,7 +173,7 @@
       render(page, response.url, "replace");
       const forms = restoreDrafts(savedDrafts);
       for (const group of document.querySelectorAll(".task-group")) {
-        if (groupStates.has(group.dataset.group)) group.open = groupStates.get(group.dataset.group);
+        if (groupStates.has(group.dataset.group) && !group.querySelector(".task.selected")) group.open = groupStates.get(group.dataset.group);
       }
       let target;
       if (response.status === 400) {
@@ -176,6 +184,10 @@
         target = focusedForm && [...focusedForm.elements].find(control => focus.id ? control.id === focus.id : control.name === focus.name);
       } else if (action === "add") target = document.querySelector("#quick-title");
       else if (action === "add-step") target = document.querySelector('.add-step input:not([type=hidden])');
+      else if (action === "set-matrix") {
+        const handle = document.querySelector('.matrix-grid .task[data-task-id="' + data.get("task_id") + '"] .matrix-move summary');
+        target = handle?.getClientRects().length ? handle : document.querySelector(".matrix-editor summary");
+      }
       else if (action === "rename-list") {
         // Focus the heading without leaving the title button outlined.
         const heading = document.querySelector(".folder-title-editor h1");

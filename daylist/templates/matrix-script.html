@@ -1,0 +1,158 @@
+<script>
+(() => {
+  let nativeCard;
+  let nativePreview;
+  let pointer;
+  let frame;
+  let suppressClickUntil = 0;
+  function highlight(quadrant) {
+    for (const zone of document.querySelectorAll(".matrix-quadrant")) {
+      zone.classList.toggle("is-drop-target", zone === quadrant);
+    }
+  }
+  function cardPreview(card) {
+    const rect = card.getBoundingClientRect();
+    const ghost = card.cloneNode(true);
+    ghost.classList.remove("is-dragging");
+    ghost.classList.add("matrix-drag-ghost");
+    ghost.removeAttribute("draggable");
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.inert = true;
+    ghost.style.width = rect.width + "px";
+    ghost.style.height = rect.height + "px";
+    ghost.style.left = rect.left + "px";
+    ghost.style.top = rect.top + "px";
+    for (const child of ghost.querySelectorAll("[id]")) child.removeAttribute("id");
+    for (const menu of ghost.querySelectorAll("details")) menu.open = false;
+    document.body.append(ghost);
+    return ghost;
+  }
+  function cleanup() {
+    nativeCard?.classList.remove("is-dragging");
+    nativeCard = null;
+    nativePreview?.remove();
+    nativePreview = null;
+    if (pointer) {
+      pointer.card.classList.remove("is-dragging");
+      pointer.ghost?.remove();
+      if (pointer.handle.hasPointerCapture(pointer.id)) pointer.handle.releasePointerCapture(pointer.id);
+    }
+    pointer = null;
+    cancelAnimationFrame(frame);
+    highlight(null);
+  }
+  function move(card, quadrant) {
+    if (!quadrant || card.closest(".matrix-quadrant") === quadrant || !card.isConnected) return;
+    const form = card.querySelector(".matrix-placement-form");
+    form.elements.matrix_quadrant.value = quadrant.dataset.quadrant;
+    form.requestSubmit();
+  }
+  function busy() { return !!document.querySelector('.workspace form[aria-busy="true"]'); }
+  document.addEventListener("dragstart", event => {
+    const card = event.target.closest(".matrix-grid .task");
+    if (!card) return;
+    if (busy() || pointer?.active || event.target.closest("input, select, textarea, form, .schedule-menu")) {
+      event.preventDefault();
+      return;
+    }
+    nativeCard = card;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", card.dataset.taskId);
+    // Snapshot an isolated clone of this card rather than a browser-composited
+    // image that can include neighbouring cards or a multi-node selection.
+    window.getSelection()?.removeAllRanges();
+    const rect = card.getBoundingClientRect();
+    const preview = cardPreview(card);
+    nativePreview = preview;
+    event.dataTransfer.setDragImage(preview,
+      Math.max(0, Math.min(event.clientX - rect.left, rect.width)),
+      Math.max(0, Math.min(event.clientY - rect.top, rect.height)));
+    requestAnimationFrame(() => {
+      preview.remove();
+      if (nativePreview === preview) nativePreview = null;
+      if (nativeCard === card) card.classList.add("is-dragging");
+    });
+  });
+  document.addEventListener("dragover", event => {
+    if (!nativeCard) return;
+    const quadrant = event.target.closest(".matrix-quadrant");
+    highlight(quadrant);
+    if (quadrant) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    }
+  });
+  document.addEventListener("drop", event => {
+    if (!nativeCard) return;
+    event.preventDefault();
+    const card = nativeCard;
+    const quadrant = event.target.closest(".matrix-quadrant");
+    cleanup();
+    suppressClickUntil = Date.now() + 400;
+    move(card, quadrant);
+  });
+  document.addEventListener("dragend", cleanup);
+  // Touch devices use the grip so dragging does not interfere with scrolling
+  // the rest of a card. Tapping the grip opens the same keyboard-friendly menu.
+  document.addEventListener("pointerdown", event => {
+    const handle = event.target.closest(".matrix-drag-handle");
+    if (!handle || event.pointerType !== "touch" || !event.isPrimary || busy()) return;
+    pointer = { id: event.pointerId, handle, card: handle.closest(".task"),
+                startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY };
+    handle.setPointerCapture(event.pointerId);
+  });
+  function followPointer() {
+    if (!pointer?.active) return;
+    const margin = 70;
+    const speed = pointer.y < margin ? -12 : pointer.y > innerHeight - margin ? 12 : 0;
+    if (speed) window.scrollBy(0, speed);
+    highlight(document.elementFromPoint(pointer.x, pointer.y)?.closest(".matrix-quadrant"));
+    frame = requestAnimationFrame(followPointer);
+  }
+  document.addEventListener("pointermove", event => {
+    if (!pointer || pointer.id !== event.pointerId) return;
+    pointer.x = event.clientX;
+    pointer.y = event.clientY;
+    if (!pointer.active && Math.hypot(pointer.x - pointer.startX, pointer.y - pointer.startY) < 8) return;
+    event.preventDefault();
+    if (!pointer.active) {
+      pointer.active = true;
+      const ghost = cardPreview(pointer.card);
+      ghost.style.left = "0";
+      ghost.style.top = "0";
+      pointer.ghost = ghost;
+      pointer.card.classList.add("is-dragging");
+      followPointer();
+    }
+    pointer.ghost.style.transform = `translate(${pointer.x - 25}px, ${pointer.y - 25}px)`;
+  }, { passive: false });
+  document.addEventListener("pointerup", event => {
+    if (!pointer || pointer.id !== event.pointerId) return;
+    const { card, active, handle } = pointer;
+    const quadrant = document.elementFromPoint(event.clientX, event.clientY)?.closest(".matrix-quadrant");
+    event.preventDefault();
+    suppressClickUntil = Date.now() + 400;
+    cleanup();
+    if (active) move(card, quadrant);
+    else {
+      // Some mobile browsers suppress the click following a previous drag.
+      // Toggle explicitly and suppress a possible compatibility click.
+      const menu = handle.closest("details");
+      for (const popup of document.querySelectorAll("details[data-dismiss-outside][open]")) {
+        if (popup !== menu) popup.open = false;
+      }
+      menu.open = !menu.open;
+    }
+  });
+  document.addEventListener("pointercancel", event => {
+    if (pointer?.id === event.pointerId) cleanup();
+  });
+  document.addEventListener("click", event => {
+    if (Date.now() < suppressClickUntil && event.target.closest(".matrix-grid .matrix-drag-handle, .matrix-grid .task-link")) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+  document.addEventListener("daylist:ready", cleanup);
+})();
+</script>

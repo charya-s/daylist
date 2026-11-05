@@ -2,12 +2,13 @@
 {% block title %}{{ view_title }} · Daylist{% endblock %}
 {% block header %}{% endblock %}
 {% block content %}
-<div class="workspace{% if selected %} has-selection{% endif %}">
+<div class="workspace{% if matrix %} matrix-view{% endif %}{% if selected %} has-selection{% endif %}">
   <aside class="sidebar">
     <a href="{% url 'all' %}" class="brand"><span class="brand-mark"><svg><use href="#icon-check"/></svg></span>Daylist</a>
     <nav aria-label="Task views">
-      <a href="{% url 'all' %}" {% if not active_list and not today_only %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
+      <a href="{% url 'all' %}" {% if not active_list and not today_only and not matrix %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
       <a href="{% url 'today' %}" {% if today_only %}aria-current="page"{% endif %}><svg><use href="#icon-today"/></svg>Today <span class="nav-count">{{ today_count }}</span></a>
+      <a href="{% url 'matrix' %}" {% if matrix %}aria-current="page"{% endif %}><svg><use href="#icon-matrix"/></svg>Matrix</a>
       <div class="lists list-heading">
         <span class="folder-heading">Folders</span>
         <button type="button" class="icon-button" id="add-folder" aria-label="Add folder" aria-haspopup="dialog" aria-controls="folder-dialog"><svg aria-hidden="true"><use href="#icon-plus"/></svg></button>
@@ -41,7 +42,7 @@
         {% else %}
           <h1>{{ view_title }}</h1>
         {% endif %}
-        <span class="open-count">{{ view_count }} open</span>
+        <span class="open-count">{% if query %}{{ result_count }} result{{ result_count|pluralize }} · {% endif %}{{ view_count }} open</span>
       </div>
       {% if rename_form %}
         <details class="list-menu" data-dismiss-outside>
@@ -55,6 +56,24 @@
         </details>
       {% endif %}
     </div>
+
+    <form class="task-filters" method="get" action="{{ view_path }}" role="search">
+      <div class="task-search">
+        <label class="sr-only" for="task-search">Search in {{ view_title }}</label>
+        <svg aria-hidden="true"><use href="#icon-search"/></svg>
+        <input type="search" name="q" id="task-search" maxlength="200" placeholder="Search tasks, notes, subtasks…" value="{{ query }}">
+      </div>
+      {% if matrix %}
+        <label class="sr-only" for="matrix-folder">Filter by folder</label>
+        <select name="folder" id="matrix-folder">
+          <option value="">All folders</option>
+          <option value="none" {% if matrix_folder == 'none' %}selected{% endif %}>No folder</option>
+          {% for item in lists %}<option value="{{ item.pk }}" {% if matrix_folder == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
+        </select>
+      {% endif %}
+      <button class="quiet" type="submit">Search</button>
+      {% if query %}<a class="quiet clear-search" href="{{ clear_url }}">Clear</a>{% endif %}
+    </form>
 
     <form class="quick-add" method="post" data-today="{{ quick_dates.today|date:'Y-m-d' }}" data-tomorrow="{{ quick_dates.tomorrow|date:'Y-m-d' }}" data-next-week="{{ next_week|date:'Y-m-d' }}">
       {% csrf_token %}
@@ -71,6 +90,19 @@
       {{ quick_form.errors }}
     </form>
 
+    {% if matrix %}
+      <p class="matrix-hint">Tasks start sorted by flag and due date. Drag cards between quadrants to choose your own placement, or use the card’s Move menu. Choose Automatic to reset.</p>
+      <div class="matrix-grid">
+        {% for quadrant in quadrants %}
+          <section class="matrix-quadrant" data-quadrant="{{ quadrant.key }}" aria-labelledby="quadrant-{{ quadrant.key }}">
+            <header><div><h2 id="quadrant-{{ quadrant.key }}">{{ quadrant.title }}</h2><p>{{ quadrant.description }}</p></div><span class="group-count">{{ quadrant.tasks|length }}</span></header>
+            <ul class="task-list">
+              {% for task in quadrant.tasks %}{% include "task.html" %}{% empty %}<li class="quadrant-empty">{% if query %}No matching tasks{% else %}No tasks here{% endif %}</li>{% endfor %}
+            </ul>
+          </section>
+        {% endfor %}
+      </div>
+    {% else %}
     {% for label, items in groups %}
       <details data-group="{{ label }}" class="task-group{% if label == 'Overdue' %} overdue-group{% endif %}" {% if label != 'Completed' or selected.done %}open{% endif %}>
         <summary><span class="chevron" aria-hidden="true"></span>{{ label }} <span class="group-count">{{ items|length }}</span></summary>
@@ -79,8 +111,9 @@
         </ul>
       </details>
     {% empty %}
-      <div class="empty"><span class="empty-icon"><svg><use href="#icon-check"/></svg></span><h2>{% if today_only %}Nothing due today{% else %}A little room to start{% endif %}</h2><p>{% if today_only %}Add something you want to get done today.{% else %}Add a task above when you’re ready.{% endif %}</p></div>
+      <div class="empty"><span class="empty-icon"><svg><use href="#icon-check"/></svg></span><h2>{% if query %}No matching tasks{% elif today_only %}Nothing due today{% else %}A little room to start{% endif %}</h2><p>{% if query %}Try another search or clear it to see your tasks.{% elif today_only %}Add something you want to get done today.{% else %}Add a task above when you’re ready.{% endif %}</p></div>
     {% endfor %}
+    {% endif %}
   </main>
 
   {% if selected %}
@@ -94,4 +127,4 @@
 {% include "folder-dialog.html" %}
 {% endblock %}
 
-{% block scripts %}{% include "folder-title-script.html" %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% include 'folder-picker-script.html' %}{% include 'workspace-script.html' %}{% endblock %}
+{% block scripts %}{% include "folder-title-script.html" %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% include 'folder-picker-script.html' %}{% include 'workspace-script.html' %}{% include 'matrix-script.html' %}{% endblock %}
