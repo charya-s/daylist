@@ -43,6 +43,12 @@ Save the generated value as `DJANGO_SECRET_KEY=your-generated-value` in `.env` a
 
 Replace your install's `compose.yaml` with the file from the new release, keeping the same directory and `.env`. Run `docker compose pull` and then `docker compose up -d`. The app applies database migrations at startup. Back up the data volume before upgrading. If upgrading from a version with restricted hostnames, remove `APP_HOSTS` from `.env` to use the new default of accepting any hostname.
 
+### Follow the latest release
+
+To follow new stable releases without changing the version number each time, set the image in your install's Compose file to `ghcr.io/charya-s/daylist:latest`. Keep your existing environment settings, port mapping, and data volume. Run `docker compose pull` and `docker compose up -d` to upgrade. The running app updates when you run these commands.
+
+Numbered image tags remain available if you prefer to stay on a specific version. The release workflow updates `latest` after publishing and testing a release; rerunning an older release does not move it backwards.
+
 ### Build from source
 
 Use the repository's `compose.yaml` with `docker compose up -d --build`. Copy `.env.example` to `.env` and fill in the secret first.

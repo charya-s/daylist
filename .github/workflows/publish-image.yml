@@ -10,6 +10,10 @@ on:
         description: Existing release tag, such as v1.0.0
         type: string
         required: true
+      promote_only:
+        description: Point latest at an existing release without rebuilding it
+        type: boolean
+        default: false
 
 concurrency:
   group: daylist-release-${{ inputs.tag || github.ref_name }}
@@ -32,6 +36,7 @@ jobs:
           ref: ${{ format('refs/tags/{0}', inputs.tag || github.ref_name) }}
 
       - name: Set up ARM emulation
+        if: ${{ !inputs.promote_only }}
         uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
         with:
           platforms: arm64
@@ -40,6 +45,7 @@ jobs:
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Publish the container image
+        if: ${{ !inputs.promote_only }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -56,6 +62,7 @@ jobs:
           echo "DAYLIST_IMAGE=$image" >> "$GITHUB_ENV"
 
       - name: Test the image-based install
+        if: ${{ !inputs.promote_only }}
         run: |
           install_dir="$RUNNER_TEMP/daylist-install"
           mkdir -p "$install_dir"
@@ -71,9 +78,27 @@ jobs:
           docker compose exec -T app python manage.py migrate --check
 
       - name: Publish the GitHub Release
+        if: ${{ !inputs.promote_only }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$RELEASE_TAG" "$RUNNER_TEMP/daylist-install/compose.yaml" \
             --verify-tag --title "Daylist $RELEASE_TAG" \
             --notes "Install with the attached compose.yaml. See the README for the secret and account setup."
+
+      - name: Update latest image tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          newest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          if [ "$newest" != "$RELEASE_TAG" ]; then
+            echo "Leaving latest on $newest; $RELEASE_TAG is not the latest published release."
+            exit 0
+          fi
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create --tag "$image:latest" "$image:${RELEASE_TAG#v}"
+          source_digest=$(docker buildx imagetools inspect "$image:${RELEASE_TAG#v}" --format '{{json .Manifest.Digest}}')
+          latest_digest=$(docker buildx imagetools inspect "$image:latest" --format '{{json .Manifest.Digest}}')
+          test "$source_digest" = "$latest_digest"
