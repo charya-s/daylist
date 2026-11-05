@@ -4,6 +4,7 @@
   let pending = false;
   let savingFinished = Promise.resolve();
   let finishSaving;
+  let colorChangeId = 0;
   let navigation;
   let navigationId = 0;
   let renderedURL = location.href;
@@ -113,7 +114,7 @@
     const link = event.target.closest(".workspace a[href]");
     if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
     const url = new URL(link.href);
-    if (url.origin !== location.origin || !/^\/(?:today\/|matrix\/|lists\/\d+\/)?$/.test(url.pathname)) return;
+    if (url.origin !== location.origin || !/^\/(?:today\/|matrix\/|trash\/|lists\/\d+\/)?$/.test(url.pathname)) return;
     event.preventDefault();
     navigate(url.href);
   });
@@ -125,8 +126,18 @@
       input.select();
     }
   }, true);
-  document.addEventListener("change", event => {
+  document.addEventListener("change", async event => {
     if (event.target.matches("#matrix-folder")) event.target.form.requestSubmit();
+    if (!event.target.matches(".folder-color-form input[type=radio]")) return;
+    const id = ++colorChangeId;
+    const value = event.target.value;
+    const url = location.href;
+    // Keep the latest choice when several colours are picked during a save.
+    while (pending) await savingFinished;
+    if (id !== colorChangeId || location.href !== url) return;
+    const form = document.querySelector(".folder-color-form");
+    const chosen = form && [...form.elements].find(input => input.type === "radio" && input.value === value);
+    if (chosen) { chosen.checked = true; form.requestSubmit(); }
   });
   document.addEventListener("submit", async event => {
     const form = event.target;
@@ -196,7 +207,12 @@
       else if (action === "add-step") target = document.querySelector('.add-step input:not([type=hidden])');
       else if (action === "set-matrix") {
         const handle = document.querySelector('.matrix-grid .task[data-task-id="' + data.get("task_id") + '"] .matrix-move summary');
-        target = handle?.getClientRects().length ? handle : document.querySelector(".matrix-editor summary");
+        target = handle?.getClientRects().length ? handle : document.querySelector("#quick-title");
+      }
+      else if (action === "color-list") {
+        const menu = document.querySelector(".list-menu");
+        if (menu) menu.open = true;
+        target = menu?.querySelector("input[type=radio]:checked");
       }
       else if (action === "rename-list") {
         // Focus the heading without leaving the title button outlined.

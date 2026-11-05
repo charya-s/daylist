@@ -1,0 +1,8 @@
+<p class="trash-hint">Restore items whenever you need them, or delete them forever. Nothing is removed automatically.</p>
+{% if trash_items_count %}
+  {% if trash_tasks %}<section class="trash-section"><h2>Tasks</h2>{% for item in trash_tasks %}{% include "trash-item.html" with kind="task" %}{% endfor %}</section>{% endif %}
+  {% if trash_folders %}<section class="trash-section"><h2>Folders</h2>{% for item in trash_folders %}{% include "trash-item.html" with kind="folder" %}{% endfor %}</section>{% endif %}
+  {% if trash_steps %}<section class="trash-section"><h2>Subtasks</h2>{% for item in trash_steps %}{% include "trash-item.html" with kind="step" %}{% endfor %}</section>{% endif %}
+{% else %}
+  <div class="empty"><span class="empty-icon"><svg><use href="#icon-trash"/></svg></span><h2>{% if query %}No matching items{% else %}Trash is empty{% endif %}</h2><p>{% if query %}Try another search.{% else %}Deleted tasks, folders, and subtasks will appear here.{% endif %}</p></div>
+{% endif %}

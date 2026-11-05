@@ -1,0 +1,11 @@
+<article class="trash-item" data-trash-kind="{{ kind }}" data-trash-id="{{ item.pk }}">
+  <div class="trash-info">
+    <h3>{% if kind == "folder" %}{{ item.name }}{% else %}{{ item.title }}{% endif %}</h3>
+    <p class="trash-meta">Deleted {{ item.deleted_at|date:"M j, Y" }}{% if kind == "step" %} · Subtask of {{ item.task.title }}{% elif kind == "folder" %} · Tasks remain in All{% endif %}</p>
+    {% if item.notes %}<p class="trash-note">{{ item.notes|truncatechars:180 }}</p>{% endif %}
+  </div>
+  <div class="trash-actions">
+    <form method="post">{% csrf_token %}<input type="hidden" name="item_id" value="{{ item.pk }}"><button class="quiet" name="action" value="restore-{{ kind }}">Restore</button></form>
+    <form method="post" data-confirm="Delete this item permanently? This cannot be undone.">{% csrf_token %}<input type="hidden" name="item_id" value="{{ item.pk }}"><button class="quiet danger" name="action" value="purge-{{ kind }}">Delete forever</button></form>
+  </div>
+</article>

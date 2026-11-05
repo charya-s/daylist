@@ -2,6 +2,7 @@
 (() => {
   function init() {
     const form = document.querySelector(".quick-add");
+    if (!form) return;
     const title = form.elements.title;
     const due = form.elements.due;
     const suggestion = form.querySelector(".suggestion-row");

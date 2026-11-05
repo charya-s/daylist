@@ -2,11 +2,11 @@
 {% block title %}{{ view_title }} · Daylist{% endblock %}
 {% block header %}{% endblock %}
 {% block content %}
-<div class="workspace{% if matrix %} matrix-view{% endif %}{% if selected %} has-selection{% endif %}">
+<div class="workspace{% if matrix %} matrix-view{% endif %}{% if trash %} trash-view{% endif %}{% if selected %} has-selection{% endif %}">
   <aside class="sidebar">
     <a href="{% url 'all' %}" class="brand"><span class="brand-mark"><svg><use href="#icon-check"/></svg></span>Daylist</a>
     <nav aria-label="Task views">
-      <a href="{% url 'all' %}" {% if not active_list and not today_only and not matrix %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
+      <a href="{% url 'all' %}" {% if not active_list and not today_only and not matrix and not trash %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
       <a href="{% url 'today' %}" {% if today_only %}aria-current="page"{% endif %}><svg><use href="#icon-today"/></svg>Today <span class="nav-count">{{ today_count }}</span></a>
       <a href="{% url 'matrix' %}" {% if matrix %}aria-current="page"{% endif %}><svg><use href="#icon-matrix"/></svg>Matrix</a>
       <div class="lists list-heading">
@@ -19,10 +19,16 @@
         <p class="sidebar-hint">Create a folder to group your tasks.</p>
       {% endfor %}
     </nav>
+    <div class="sidebar-bottom">
+      <nav aria-label="Trash">
+      <a href="{% url 'trash' %}" {% if trash %}aria-current="page"{% endif %}><svg><use href="#icon-trash"/></svg>Trash <span class="nav-count">{{ trash_count }}</span></a>
+      </nav>
     <footer class="sidebar-footer">
       <button type="button" class="quiet theme" id="theme" aria-label="Dark theme" aria-pressed="false"><span aria-hidden="true" id="theme-icon">☾</span> Theme</button>
+      <a class="icon-button" href="{% url 'change-password' %}" title="Change password" aria-label="Change password"><svg aria-hidden="true"><use href="#icon-profile"/></svg></a>
       <form method="post" action="{% url 'sign-out' %}">{% csrf_token %}<button class="quiet">Sign out</button></form>
     </footer>
+    </div>
   </aside>
 
   <main class="task-pane">
@@ -42,7 +48,7 @@
         {% else %}
           <h1>{{ view_title }}</h1>
         {% endif %}
-        <span class="open-count">{% if query %}{{ result_count }} result{{ result_count|pluralize }} · {% endif %}{{ view_count }} open</span>
+        <span class="open-count">{% if trash %}{{ trash_items_count }} item{{ trash_items_count|pluralize }}{% else %}{% if query %}{{ result_count }} result{{ result_count|pluralize }} · {% endif %}{{ view_count }} open{% endif %}</span>
       </div>
       <form class="task-filters" method="get" action="{{ view_path }}" role="search">
         <details class="search-tools" data-dismiss-outside>
@@ -68,18 +74,27 @@
         {% endif %}
       </form>
       {% if rename_form %}
-        <details class="list-menu" data-dismiss-outside>
+        <details class="list-menu" data-dismiss-outside {% if color_form.errors %}open{% endif %}>
           <summary class="icon-button" aria-label="Manage folder" title="Manage folder"><svg><use href="#icon-settings"/></svg></summary>
           <div class="menu-panel">
-            <form method="post" data-confirm="Delete this folder? Its tasks will stay in All.">
+            <form class="folder-color-form" method="post">
               {% csrf_token %}
-              <button class="quiet danger" name="action" value="delete-list">Delete folder</button>
+              {% include "folder-colors.html" with color_field=color_form.color %}
+              <input type="hidden" name="action" value="color-list">
+              <noscript><button class="primary">Save color</button></noscript>
+            </form>
+            <form method="post">
+              {% csrf_token %}
+              <button class="quiet danger" name="action" value="delete-list">Move folder to Trash</button>
             </form>
           </div>
         </details>
       {% endif %}
     </div>
 
+    {% if trash %}
+      {% include "trash.html" %}
+    {% else %}
     <form class="quick-add" method="post" data-today="{{ quick_dates.today|date:'Y-m-d' }}" data-tomorrow="{{ quick_dates.tomorrow|date:'Y-m-d' }}" data-next-week="{{ next_week|date:'Y-m-d' }}">
       {% csrf_token %}
       <div class="quick-fields">
@@ -118,6 +133,7 @@
     {% empty %}
       <div class="empty"><span class="empty-icon"><svg><use href="#icon-check"/></svg></span><h2>{% if query %}No matching tasks{% elif today_only %}Nothing due today{% else %}A little room to start{% endif %}</h2><p>{% if query %}Try another search or clear it to see your tasks.{% elif today_only %}Add something you want to get done today.{% else %}Add a task above when you’re ready.{% endif %}</p></div>
     {% endfor %}
+    {% endif %}
     {% endif %}
   </main>
 

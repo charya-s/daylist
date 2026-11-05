@@ -1,0 +1,13 @@
+<fieldset class="folder-color-picker">
+  <legend>Color</legend>
+  <div class="folder-swatches">
+    {% for radio in color_field %}
+      <label class="folder-swatch" title="{{ radio.choice_label }}">
+        {{ radio.tag }}
+        <span class="swatch-mark" data-color="{{ radio.data.value }}" aria-hidden="true"></span>
+        <span class="sr-only">{{ radio.choice_label }}</span>
+      </label>
+    {% endfor %}
+  </div>
+  {{ color_field.errors }}
+</fieldset>

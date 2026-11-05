@@ -15,6 +15,7 @@ class TaskList(models.Model):
 
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=80)
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
     color = models.CharField(max_length=7, choices=Color.choices, default=Color.DEFAULT)
 
     class Meta:
@@ -44,10 +45,12 @@ class Task(models.Model):
 
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
     due = models.DateField(null=True, blank=True, db_index=True)
     done = models.BooleanField(default=False)
     task_list = models.ForeignKey(TaskList, on_delete=models.SET_NULL, null=True,
                                   blank=True, related_name="tasks")
+    restore_folder = models.ForeignKey(TaskList, on_delete=models.SET_NULL, null=True, blank=True, related_name="restorable_tasks")
     notes = models.TextField(blank=True, default="")
     flagged = models.BooleanField(default=False)
     matrix_quadrant = models.CharField(max_length=10, choices=MatrixQuadrant.choices, blank=True, default="")
@@ -69,6 +72,7 @@ class Task(models.Model):
 class Subtask(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="subtasks")
     title = models.CharField(max_length=200)
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
     due = models.DateField(null=True, blank=True)
     done = models.BooleanField(default=False)
 
