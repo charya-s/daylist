@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Create account · Daylist{% endblock %}
+{% block content %}
+<main class="login">
+  <p class="eyebrow">YOUR OWN WORKSPACE</p>
+  <h1>Create account</h1>
+  <p class="subtitle">Your tasks, folders, and notes stay private to your account.</p>
+  <form method="post" class="panel login-form">
+    {% csrf_token %}
+    {% if limited %}<p class="error" role="alert">Too many attempts. Try again in a minute.</p>{% endif %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<div class="auth-help" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</div>{% endif %}
+      {{ field.errors }}
+    {% endfor %}
+    <button class="primary">Create account</button>
+  </form>
+  <p class="auth-switch">Already have an account? <a href="{% url 'sign-in' %}">Sign in</a></p>
+</main>
+{% endblock %}

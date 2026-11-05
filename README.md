@@ -1,6 +1,6 @@
 # Daylist
 
-A single-user task workspace with All, Today, and custom folders. Select a task to see its details and manage subtasks and notes. Click the title, date, or folder in the details pane to edit it. Press Enter or tap the plus icon to add a task or subtask. Subtasks have independent checkboxes and optional due dates. Click a folder's title above the task list to edit it in place. Press Enter or click away to save, or Escape to cancel. Switching between All, Today, folders, and task details does not reload the page. Task and folder changes save in the background; unfinished edits in other forms are preserved. Deleting a folder leaves its tasks in All, without a folder.
+A task workspace with All, Today, and custom folders. Each account has its own private workspace. Select a task to see its details and manage subtasks and notes. Click the title, date, or folder in the details pane to edit it. Press Enter or tap the plus icon to add a task or subtask. Subtasks have independent checkboxes and optional due dates. Click a folder's title above the task list to edit it in place. Press Enter or click away to save, or Escape to cancel. Switching between All, Today, folders, and task details does not reload the page. Task and folder changes save in the background; unfinished edits in other forms are preserved. Deleting a folder leaves its tasks in All, without a folder.
 
 Click a task date or calendar icon to move it to Today, Tomorrow, Next week (seven days from today), or No date. In the quick-add field, finish a title with today, tomorrow, or next week to see a date suggestion. Dismiss the suggestion to keep the words in the title. Use the flag in task details to mark a task as a priority.
 
@@ -23,11 +23,9 @@ Today shows tasks whose due date matches the configured time zone. The theme fol
    docker compose up -d
    ```
 
-4. Once the sign-in page is available, create your account and sign in at `http://YOUR_SERVER_IP:8000` (or http://localhost:8000 on the server itself):
+4. Open `http://YOUR_SERVER_IP:8000` (or http://localhost:8000 on the server itself) and click **Create an account**. Choose a username and password to open your own workspace. Other people can sign up from the same page; each account has its own tasks, folders, subtasks, and notes.
 
-   ```sh
-   docker compose exec app python manage.py createsuperuser
-   ```
+Registration is open to anyone who can reach the app. New usernames can contain up to 15 characters, using letters (A-Z, a-z) and numbers (0-9) only. Passwords must contain at least 14 characters and at least one number. No email address is required. Existing accounts continue to work. If you need an administrator account, you can still run `docker compose exec app python manage.py createsuperuser`.
 
 On Linux or macOS, `openssl rand -hex 32` generates a suitable secret. In PowerShell, use:
 
@@ -65,7 +63,7 @@ tasks.example.com {
 
 Allow inbound ports 80 and 443 for Caddy. Keep port 8000 private. Run `docker compose up -d` after changes to `.env`. Once HTTPS is working, sign in from a second device and confirm the same tasks appear.
 
-The app uses Django sessions, CSRF protection, Argon2id password hashing, and a shared limit of ten sign-in attempts per minute per app instance. Run a single app instance with the supplied worker configuration.
+The app uses Django sessions, CSRF protection, Argon2id password hashing, and separate shared limits of ten sign-in attempts and ten sign-up attempts per minute per app instance. Run a single app instance with the supplied worker configuration.
 
 ## Storage and backups
 

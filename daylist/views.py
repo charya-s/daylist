@@ -4,7 +4,7 @@ from datetime import timedelta
 from django import forms
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models import Count, F, Q
@@ -16,6 +16,16 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .models import Subtask, Task, TaskList
+
+
+class SignUpForm(UserCreationForm):
+    username = forms.RegexField(
+        regex=r"\A[A-Za-z0-9]+\Z", max_length=15, strip=False,
+        help_text="15 characters or fewer. Letters and numbers only.",
+        error_messages={"invalid": "Use only letters and numbers."},
+        widget=forms.TextInput(attrs={"autocomplete": "username", "autocapitalize": "none",
+                                      "autofocus": True, "pattern": "[A-Za-z0-9]+"}),
+    )
 
 
 class DateInput(forms.DateInput):
@@ -109,6 +119,34 @@ def sign_in(request):
             return redirect("all")
     return render(request, "login.html", {"form": form, "limited": limited},
                   status=429 if limited else 200)
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
+def sign_up(request):
+    if request.user.is_authenticated:
+        return redirect("all")
+    form = SignUpForm(request.POST if request.method == "POST" else None)
+    limited = False
+    if request.method == "POST":
+        # Share the cap across threads, including successful registrations.
+        key = "sign-up-attempts"
+        cache.add(key, 0, timeout=60)
+        try:
+            limited = cache.incr(key) > 10
+        except ValueError:
+            limited = True
+        if not limited and form.is_valid():
+            try:
+                with transaction.atomic():
+                    user = form.save()
+            except IntegrityError:
+                form.add_error("username", "This username is already taken.")
+            else:
+                login(request, user)
+                return redirect("all")
+    return render(request, "signup.html", {"form": form, "limited": limited},
+                  status=429 if limited else 400 if request.method == "POST" else 200)
 
 
 @require_POST
@@ -320,5 +358,6 @@ urlpatterns = [
     path("today/", tasks, {"today_only": True}, name="today"),
     path("lists/<int:list_id>/", tasks, name="task-list"),
     path("sign-in/", sign_in, name="sign-in"),
+    path("sign-up/", sign_up, name="sign-up"),
     path("sign-out/", sign_out, name="sign-out"),
 ]
