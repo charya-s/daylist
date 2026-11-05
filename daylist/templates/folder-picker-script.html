@@ -1,32 +1,37 @@
 <script>
 (() => {
-  const picker = document.querySelector(".folder-picker");
-  const search = picker.querySelector("input[type=search]");
-  const options = Array.from(picker.querySelectorAll(".folder-option"));
-  const empty = picker.querySelector(".folder-no-results");
+  function init() {
+    const picker = document.querySelector(".folder-picker");
+    if (!picker) return;
+    const search = picker.querySelector("input[type=search]");
+    const options = Array.from(picker.querySelectorAll(".folder-option"));
+    const empty = picker.querySelector(".folder-no-results");
 
-  function filter() {
-    const query = search.value.trim().toLocaleLowerCase();
-    for (const option of options) {
-      option.hidden = !option.querySelector("span").textContent.toLocaleLowerCase().includes(query);
+    function filter() {
+      const query = search.value.trim().toLocaleLowerCase();
+      for (const option of options) {
+        option.hidden = !option.querySelector("span").textContent.toLocaleLowerCase().includes(query);
+      }
+      empty.hidden = options.some(option => !option.hidden);
     }
-    empty.hidden = options.some(option => !option.hidden);
-  }
 
-  search.addEventListener("input", filter);
-  search.addEventListener("keydown", event => {
-    if (event.isComposing || (event.key !== "Enter" && event.key !== "ArrowDown")) return;
-    event.preventDefault();
-    const first = options.find(option => !option.hidden);
-    if (!first) return;
-    if (event.key === "ArrowDown") first.focus();
-    else if (search.value.trim()) first.click();
-  });
-  picker.addEventListener("toggle", () => {
-    if (!picker.open) return;
-    search.value = "";
-    filter();
-    search.focus();
-  });
+    search.addEventListener("input", filter);
+    search.addEventListener("keydown", event => {
+      if (event.isComposing || (event.key !== "Enter" && event.key !== "ArrowDown")) return;
+      event.preventDefault();
+      const first = options.find(option => !option.hidden);
+      if (!first) return;
+      if (event.key === "ArrowDown") first.focus();
+      else if (search.value.trim()) first.click();
+    });
+    picker.addEventListener("toggle", () => {
+      if (!picker.open) return;
+      search.value = "";
+      filter();
+      search.focus();
+    });
+  }
+  document.addEventListener("daylist:ready", init);
+  init();
 })();
 </script>

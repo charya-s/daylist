@@ -1,0 +1,206 @@
+<div class="save-status" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  let pending = false;
+  let savingFinished = Promise.resolve();
+  let finishSaving;
+  let navigation;
+  let navigationId = 0;
+  let renderedURL = location.href;
+  const views = new Map();
+  const status = document.querySelector(".save-status");
+  function message(text, error = false) {
+    status.textContent = text;
+    status.classList.toggle("is-error", error);
+  }
+  function key(form) {
+    const context = form.closest(".detail-pane") ? "detail" : form.closest("dialog") ? "dialog" : "main";
+    const actions = [...form.querySelectorAll('[name="action"]')].map(control =>
+      control.value.replace(/^reopen/, "complete").replace(/^unflag$/, "flag")).join(",");
+    return [context, form.className.replace(/\bis-editing\b/g, "").trim(), form.elements.task_id?.value || "", form.elements.step_id?.value || "", actions].join("|");
+  }
+  function editableControls(form) {
+    return [...form.querySelectorAll('input:not([type=hidden]):not([type=submit]), textarea, select')];
+  }
+  function drafts(submitted, sent) {
+    return [...document.querySelectorAll(".workspace form, #folder-dialog form")]
+      .map(form => ({ key: key(form), fields: editableControls(form).filter(control => {
+        if (form === submitted) return ['radio', 'checkbox'].includes(control.type) ?
+          control.checked !== sent.getAll(control.name).includes(control.value) : control.value !== sent.get(control.name);
+        return control.type === "radio" || control.type === "checkbox" ? control.checked !== control.defaultChecked :
+        control.tagName === "SELECT" ? [...control.options].some(option => option.selected !== option.defaultSelected) :
+        control.value !== control.defaultValue;
+      }).map(control => ({ name: control.name, value: control.value, checked: control.checked })) }))
+      .filter(draft => draft.fields.length);
+  }
+  function restoreDrafts(savedDrafts) {
+    const forms = [...document.querySelectorAll(".workspace form, #folder-dialog form")];
+    for (const draft of savedDrafts) {
+      const target = forms.find(candidate => key(candidate) === draft.key);
+      if (!target) continue;
+      for (const field of draft.fields) {
+        const control = editableControls(target).find(candidate => candidate.name === field.name &&
+          (!['radio', 'checkbox'].includes(candidate.type) || candidate.value === field.value));
+        if (!control) continue;
+        control.value = field.value;
+        const editor = control.closest("details[data-dismiss-outside]");
+        if (editor) editor.open = true;
+        if (control.matches(".folder-title-input")) {
+          target.classList.add("is-editing");
+          control.hidden = false;
+          target.querySelector(".folder-title").hidden = true;
+        }
+        if (['radio', 'checkbox'].includes(control.type)) control.checked = field.checked;
+        control.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
+    return forms;
+  }
+  function render(page, url, historyMode) {
+    const workspace = page.querySelector(".workspace");
+    const dialog = page.querySelector("#folder-dialog");
+    if (!workspace || !dialog) throw new Error("Unexpected response");
+    document.querySelector(".workspace").replaceWith(workspace);
+    document.querySelector("#folder-dialog").replaceWith(dialog);
+    document.title = page.title;
+    history[historyMode === "push" ? "pushState" : "replaceState"](history.state, "", url);
+    renderedURL = location.href;
+    document.dispatchEvent(new Event("daylist:ready"));
+    return dialog;
+  }
+  async function navigate(url, historyMode = "push") {
+    const id = ++navigationId;
+    navigation?.abort();
+    // A title can save on blur just before a navigation click.
+    await savingFinished;
+    if (id !== navigationId) return;
+    views.set(renderedURL, {
+      drafts: drafts(), scroll: [window.scrollX, window.scrollY],
+      groups: new Map([...document.querySelectorAll(".task-group")].map(group => [group.dataset.group, group.open])),
+    });
+    navigation = new AbortController();
+    const sidebarScroll = document.querySelector(".sidebar nav").scrollTop;
+    message("Loading…");
+    try {
+      const response = await fetch(url, { credentials: "same-origin", signal: navigation.signal });
+      if (id !== navigationId) return;
+      if (new URL(response.url).pathname === "/sign-in/") {
+        location.assign(response.url);
+        return;
+      }
+      if (!response.ok) throw new Error("Navigation failed");
+      const page = new DOMParser().parseFromString(await response.text(), "text/html");
+      if (id !== navigationId) return;
+      render(page, response.url, historyMode);
+      const previous = views.get(renderedURL);
+      if (previous) {
+        restoreDrafts(previous.drafts);
+        for (const group of document.querySelectorAll(".task-group")) {
+          if (previous.groups.has(group.dataset.group)) group.open = previous.groups.get(group.dataset.group);
+        }
+      }
+      document.querySelector(".sidebar nav").scrollTop = sidebarScroll;
+      window.scrollTo(...(previous?.scroll || [0, 0]));
+      message("");
+    } catch (error) {
+      if (error.name === "AbortError" || id !== navigationId) return;
+      if (historyMode === "replace") history.replaceState(history.state, "", renderedURL);
+      message("Couldn’t load that list. Please try again.", true);
+    }
+  }
+  document.addEventListener("click", event => {
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const link = event.target.closest(".workspace a[href]");
+    if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
+    const url = new URL(link.href);
+    if (url.origin !== location.origin || !/^\/(?:today\/|lists\/\d+\/)?$/.test(url.pathname)) return;
+    event.preventDefault();
+    navigate(url.href);
+  });
+  window.addEventListener("popstate", () => navigate(location.href, "replace"));
+  document.addEventListener("submit", async event => {
+    const form = event.target;
+    const formURL = new URL(form.getAttribute("action") || location.href, location.href);
+    if (event.defaultPrevented || form.method.toLowerCase() !== "post" ||
+        !form.matches(".workspace form, #folder-dialog form") || formURL.pathname === "/sign-out/") return;
+    event.preventDefault();
+    if (pending) {
+      message("Still saving. Please try again in a moment.");
+      return;
+    }
+    // Include the clicked button: its value identifies most task actions.
+    const data = new FormData(form);
+    if (event.submitter?.name) data.append(event.submitter.name, event.submitter.value);
+    const action = data.get("action");
+    const submittedKey = key(form);
+    pending = true;
+    navigation?.abort();
+    navigationId++;
+    savingFinished = new Promise(resolve => { finishSaving = resolve; });
+    form.dispatchEvent(new Event("daylist:saving"));
+    form.setAttribute("aria-busy", "true");
+    message("Saving…");
+    try {
+      const response = await fetch(formURL, {
+        method: "POST", body: data, credentials: "same-origin",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+      if (new URL(response.url).pathname === "/sign-in/") {
+        location.assign(response.url);
+        return;
+      }
+      if (!response.ok && response.status !== 400) throw new Error("Save failed");
+      const page = new DOMParser().parseFromString(await response.text(), "text/html");
+      const next = page.querySelector(".workspace");
+      const dialog = page.querySelector("#folder-dialog");
+      if (!next || !dialog) throw new Error("Unexpected response");
+      // Read drafts after the request, including anything typed while saving.
+      const savedDrafts = drafts(form, data);
+      const keepDialogOpen = document.querySelector("#folder-dialog").open && !form.closest("#folder-dialog");
+      const active = document.activeElement;
+      const focus = active?.form ? { key: key(active.form), name: active.name, id: active.id } : null;
+      const groupStates = new Map([...document.querySelectorAll(".task-group")].map(group => [group.dataset.group, group.open]));
+      const scroll = [window.scrollX, window.scrollY];
+      const sidebarScroll = document.querySelector(".sidebar nav").scrollTop;
+      render(page, response.url, "replace");
+      const forms = restoreDrafts(savedDrafts);
+      for (const group of document.querySelectorAll(".task-group")) {
+        if (groupStates.has(group.dataset.group)) group.open = groupStates.get(group.dataset.group);
+      }
+      let target;
+      if (response.status === 400) {
+        const invalid = forms.find(candidate => key(candidate) === submittedKey);
+        target = invalid?.querySelector('[aria-invalid="true"], input:not([type=hidden]), textarea');
+      } else if (focus && focus.key !== submittedKey) {
+        const focusedForm = forms.find(candidate => key(candidate) === focus.key);
+        target = focusedForm && [...focusedForm.elements].find(control => focus.id ? control.id === focus.id : control.name === focus.name);
+      } else if (action === "add") target = document.querySelector("#quick-title");
+      else if (action === "add-step") target = document.querySelector('.add-step input:not([type=hidden])');
+      else if (action === "rename-list") {
+        // Focus the heading without leaving the title button outlined.
+        const heading = document.querySelector(".folder-title-editor h1");
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+        heading.blur();
+        window.getSelection()?.removeAllRanges();
+      }
+      else {
+        const replacement = forms.find(candidate => key(candidate) === submittedKey);
+        target = replacement?.querySelector("button") || document.querySelector("#quick-title");
+      }
+      if (keepDialogOpen && !dialog.open) dialog.showModal();
+      if (!dialog.open || dialog.contains(target)) target?.focus({ preventScroll: true });
+      document.querySelector(".sidebar nav").scrollTop = sidebarScroll;
+      window.scrollTo(...scroll);
+      message(response.status === 400 ? "Please check the highlighted fields." : "", response.status === 400);
+    } catch (error) {
+      message("Couldn’t confirm the save. Your edits are still here. Refresh to check before trying again.", true);
+      form.dispatchEvent(new Event("daylist:save-failed"));
+    } finally {
+      pending = false;
+      finishSaving();
+      form.removeAttribute("aria-busy");
+    }
+  });
+})();
+</script>

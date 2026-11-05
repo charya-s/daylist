@@ -28,18 +28,25 @@
     <div class="pane-header">
       <div>
 
-        <h1>{{ view_title }}</h1>
+        {% if rename_form %}
+          <form class="folder-title-editor{% if rename_form.errors %} is-editing{% endif %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="rename-list">
+            <h1><button type="button" class="folder-title" title="Rename folder" aria-label="Rename folder {{ active_list.name }}" hidden>{{ view_title }}</button></h1>
+            <label class="sr-only" for="{{ rename_form.name.id_for_label }}">Folder name</label>
+            <input type="text" class="folder-title-input" id="{{ rename_form.name.id_for_label }}" name="{{ rename_form.name.html_name }}" maxlength="80" required value="{{ rename_form.name.value|default_if_none:'' }}" data-original="{{ active_list.name }}" {% if rename_form.errors %}aria-invalid="true" aria-describedby="folder-title-errors"{% endif %}>
+            <div id="folder-title-errors">{{ rename_form.name.errors }}</div>
+            <noscript><button class="quiet" type="submit">Save folder name</button></noscript>
+          </form>
+        {% else %}
+          <h1>{{ view_title }}</h1>
+        {% endif %}
         <span class="open-count">{{ view_count }} open</span>
       </div>
       {% if rename_form %}
-        <details class="list-menu" data-dismiss-outside {% if rename_form.errors %}open{% endif %}>
+        <details class="list-menu" data-dismiss-outside>
           <summary class="icon-button" aria-label="Manage folder" title="Manage folder"><svg><use href="#icon-settings"/></svg></summary>
           <div class="menu-panel">
-            <form method="post">
-              {% csrf_token %}
-              {{ rename_form.as_p }}
-              <button class="primary" name="action" value="rename-list">Rename folder</button>
-            </form>
             <form method="post" data-confirm="Delete this folder? Its tasks will stay in All.">
               {% csrf_token %}
               <button class="quiet danger" name="action" value="delete-list">Delete folder</button>
@@ -65,7 +72,7 @@
     </form>
 
     {% for label, items in groups %}
-      <details class="task-group{% if label == 'Overdue' %} overdue-group{% endif %}" {% if label != 'Completed' or selected.done %}open{% endif %}>
+      <details data-group="{{ label }}" class="task-group{% if label == 'Overdue' %} overdue-group{% endif %}" {% if label != 'Completed' or selected.done %}open{% endif %}>
         <summary><span class="chevron" aria-hidden="true"></span>{{ label }} <span class="group-count">{{ items|length }}</span></summary>
         <ul class="task-list">
           {% for task in items %}{% include "task.html" %}{% endfor %}
@@ -87,4 +94,4 @@
 {% include "folder-dialog.html" %}
 {% endblock %}
 
-{% block scripts %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% if selected %}{% include 'folder-picker-script.html' %}{% endif %}{% endblock %}
+{% block scripts %}{% include "folder-title-script.html" %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% include 'folder-picker-script.html' %}{% include 'workspace-script.html' %}{% endblock %}

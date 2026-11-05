@@ -316,3 +316,13 @@ h1 { font: 500 clamp(34px, 4vw, 56px)/1.05 Georgia, serif; letter-spacing: -.045
 @media (max-width: 550px) {
   .folder-picker .folder-options { left: 0; right: auto; width: min(225px, calc(100vw - 115px)); }
 }
+
+.folder-title-editor { min-width: 0; max-width: 100%; }
+.folder-title { border: 0; padding: 0; background: transparent; font: inherit; letter-spacing: inherit; text-align: left; overflow-wrap: anywhere; }
+.folder-title:hover { color: var(--accent); }
+.folder-title-editor .folder-title-input { width: clamp(180px, 40vw, 420px); max-width: 100%; min-height: 32px; padding: 0 3px; border-radius: 3px; font: 500 28px/1.05 Georgia, serif; letter-spacing: -.026em; }
+.folder-title-editor .errorlist { margin: 5px 0 0; padding-left: 18px; font-size: 13px; }
+.save-status { position: fixed; z-index: 10; bottom: 16px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--muted); box-shadow: 0 4px 16px var(--shadow); }
+.save-status:empty { display: none; }
+.save-status.is-error { color: var(--danger); }
+[hidden] { display: none !important; }

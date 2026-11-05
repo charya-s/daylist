@@ -1,6 +1,6 @@
 # Daylist
 
-A single-user task workspace with All, Today, and custom folders. Select a task to see its details and manage subtasks and notes. Click the title, date, or folder in the details pane to edit it. Press Enter or tap the plus icon to add a task or subtask. Subtasks have independent checkboxes and optional due dates. Deleting a folder leaves its tasks in All, without a folder.
+A single-user task workspace with All, Today, and custom folders. Select a task to see its details and manage subtasks and notes. Click the title, date, or folder in the details pane to edit it. Press Enter or tap the plus icon to add a task or subtask. Subtasks have independent checkboxes and optional due dates. Click a folder's title above the task list to edit it in place. Press Enter or click away to save, or Escape to cancel. Switching between All, Today, folders, and task details does not reload the page. Task and folder changes save in the background; unfinished edits in other forms are preserved. Deleting a folder leaves its tasks in All, without a folder.
 
 Click a task date or calendar icon to move it to Today, Tomorrow, Next week (seven days from today), or No date. In the quick-add field, finish a title with today, tomorrow, or next week to see a date suggestion. Dismiss the suggestion to keep the words in the title. Use the flag in task details to mark a task as a priority.
 

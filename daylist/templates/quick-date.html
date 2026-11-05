@@ -1,41 +1,45 @@
 <script>
 (() => {
-  const form = document.querySelector(".quick-add");
-  const title = form.elements.title;
-  const due = form.elements.due;
-  const suggestion = form.querySelector(".suggestion-row");
-  const chip = suggestion.querySelector("button");
-  const label = chip.firstElementChild;
-  const dates = {
-    today: [form.dataset.today, "Today"],
-    tomorrow: [form.dataset.tomorrow, "Tomorrow"],
-    "next week": [form.dataset.nextWeek, "Next week"],
-  };
-  const defaultDate = due.value;
-  let ignoredText;
-  let parsedTitle;
+  function init() {
+    const form = document.querySelector(".quick-add");
+    const title = form.elements.title;
+    const due = form.elements.due;
+    const suggestion = form.querySelector(".suggestion-row");
+    const chip = suggestion.querySelector("button");
+    const label = chip.firstElementChild;
+    const dates = {
+      today: [form.dataset.today, "Today"],
+      tomorrow: [form.dataset.tomorrow, "Tomorrow"],
+      "next week": [form.dataset.nextWeek, "Next week"],
+    };
+    const defaultDate = due.value;
+    let ignoredText;
+    let parsedTitle;
 
-  function updateSuggestion() {
-    const text = title.value.trim();
-    const match = text.match(/^(.+\S|\S)\s+(today|tomorrow|next\s+week)$/i);
-    const shortcut = match && text !== ignoredText && dates[match[2].toLowerCase().replace(/\s+/g, " ")];
-    parsedTitle = shortcut ? match[1].trimEnd() : undefined;
-    suggestion.hidden = !shortcut;
-    due.value = shortcut ? shortcut[0] : defaultDate;
-    if (shortcut) {
-      label.textContent = shortcut[1];
-      chip.setAttribute("aria-label", "Remove suggested date " + shortcut[1]);
+    function updateSuggestion() {
+      const text = title.value.trim();
+      const match = text.match(/^(.+\S|\S)\s+(today|tomorrow|next\s+week)$/i);
+      const shortcut = match && text !== ignoredText && dates[match[2].toLowerCase().replace(/\s+/g, " ")];
+      parsedTitle = shortcut ? match[1].trimEnd() : undefined;
+      suggestion.hidden = !shortcut;
+      due.value = shortcut ? shortcut[0] : defaultDate;
+      if (shortcut) {
+        label.textContent = shortcut[1];
+        chip.setAttribute("aria-label", "Remove suggested date " + shortcut[1]);
+      }
     }
-  }
 
-  title.addEventListener("input", updateSuggestion);
-  chip.addEventListener("click", () => {
-    ignoredText = title.value.trim();
-    updateSuggestion();
-    title.focus();
-  });
-  form.addEventListener("submit", () => {
-    if (parsedTitle) title.value = parsedTitle;
-  });
+    title.addEventListener("input", updateSuggestion);
+    chip.addEventListener("click", () => {
+      ignoredText = title.value.trim();
+      updateSuggestion();
+      title.focus();
+    });
+    form.addEventListener("submit", () => {
+      if (parsedTitle) title.value = parsedTitle;
+    });
+  }
+  document.addEventListener("daylist:ready", init);
+  init();
 })();
 </script>

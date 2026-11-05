@@ -1,0 +1,60 @@
+<script>
+(() => {
+  function init() {
+    const form = document.querySelector(".folder-title-editor");
+    if (!form) return;
+    const button = form.querySelector(".folder-title");
+    const input = form.querySelector(".folder-title-input");
+    const errors = form.querySelector("#folder-title-errors");
+    let saving = false;
+    function edit() {
+      form.classList.add("is-editing");
+      button.hidden = true;
+      input.hidden = false;
+      input.focus();
+      input.select();
+    }
+    function cancel() {
+      input.value = input.dataset.original;
+      input.hidden = true;
+      button.hidden = false;
+      errors.replaceChildren();
+      input.removeAttribute("aria-invalid");
+      form.classList.remove("is-editing");
+    }
+    button.addEventListener("click", edit);
+    input.addEventListener("keydown", event => {
+      if (event.isComposing) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cancel();
+        button.focus();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+    input.addEventListener("blur", () => {
+      if (input.hidden || saving) return;
+      if (input.value.trim() === input.dataset.original) cancel();
+      else if (input.checkValidity()) form.requestSubmit();
+    });
+    form.addEventListener("submit", event => {
+      if (input.value.trim() === input.dataset.original) {
+        event.preventDefault();
+        cancel();
+        button.focus();
+      }
+    });
+    form.addEventListener("daylist:saving", () => { saving = true; });
+    form.addEventListener("daylist:save-failed", () => { saving = false; });
+    if (form.classList.contains("is-editing")) edit();
+    else {
+      input.hidden = true;
+      button.hidden = false;
+    }
+  }
+  document.addEventListener("daylist:ready", init);
+  init();
+})();
+</script>
