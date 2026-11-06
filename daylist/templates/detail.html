@@ -12,16 +12,7 @@
     <a class="back-detail quiet" href="{{ view_url }}"><svg><use href="#icon-arrow"/></svg> Back to tasks</a>
   </div>
   <div class="detail-content">
-    <details class="title-editor" data-dismiss-outside {% if title_form.errors %}open{% endif %}>
-      <summary><h2 class="task-detail-title">{{ selected.title }}</h2></summary>
-      <form class="menu-panel title-form" method="post">
-        {% csrf_token %}
-        <input type="hidden" name="task_id" value="{{ selected.pk }}">
-        <label class="sr-only" for="{{ title_form.title.id_for_label }}">Task name</label>
-        {{ title_form.title }}{{ title_form.title.errors }}
-        <button class="primary" name="action" value="rename-task">Rename task</button>
-      </form>
-    </details>
+    {% include "inline-title.html" with name_field=title_form.title title=selected.title task=selected action="rename-task" %}
     <div class="detail-meta">
       {% include "schedule.html" with task=selected show_calendar=True %}
       <details class="folder-picker" data-dismiss-outside {% if folder_form.errors %}open{% endif %}>
@@ -59,18 +50,11 @@
                 <input type="hidden" name="step_id" value="{{ step.pk }}">
                 <button class="check" name="action" value="{% if step.done %}reopen-step{% else %}complete-step{% endif %}" aria-label="{% if step.done %}Reopen{% else %}Complete{% endif %} {{ step.title }}"><span>{% if step.done %}<svg><use href="#icon-check"/></svg>{% endif %}</span></button>
               </form>
-              <span class="task-title">{{ step.title }}</span>
+              {% include "inline-title.html" with name_field=form.title title=step.title task=selected action="edit-step" %}
               {% include "schedule.html" with task=selected step=step show_calendar=True %}
               <details class="step-edit" data-dismiss-outside {% if form.errors %}open{% endif %}>
-                <summary class="icon-button" aria-label="Edit subtask {{ step.title }}" title="Edit subtask"><svg><use href="#icon-settings"/></svg></summary>
+                <summary class="icon-button" aria-label="Actions for subtask {{ step.title }}" title="Subtask actions"><svg><use href="#icon-settings"/></svg></summary>
                 <div class="menu-panel">
-                  <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="task_id" value="{{ selected.pk }}">
-                    <input type="hidden" name="step_id" value="{{ step.pk }}">
-                    {{ form.as_p }}
-                    <button class="primary" name="action" value="edit-step">Save subtask</button>
-                  </form>
                   <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="task_id" value="{{ selected.pk }}">

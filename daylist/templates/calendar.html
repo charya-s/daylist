@@ -67,12 +67,19 @@
           render();
         } else if (button.dataset.shortcut) {
           input.value = form.dataset[button.dataset.shortcut];
-          showMonth(input.value);
+          form.requestSubmit();
         } else if (button.dataset.day) {
           input.value = button.dataset.day;
-          showMonth(input.value);
-          days.querySelector('[data-day="' + input.value + '"]').focus();
+          form.requestSubmit();
         }
+      });
+      input.addEventListener("change", () => form.requestSubmit());
+      form.addEventListener("daylist:saving", () => {
+        for (const button of form.querySelectorAll("button")) button.disabled = true;
+      });
+      form.addEventListener("daylist:save-failed", () => {
+        for (const button of form.querySelectorAll("button")) button.disabled = false;
+        render();
       });
       input.closest("label").hidden = true;
       calendar.hidden = false;

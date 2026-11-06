@@ -1,6 +1,6 @@
 # Daylist
 
-A task workspace with All, Today, and custom folders. Each account has its own private workspace. Select a task to see its details and manage subtasks and notes. Click the title, date, or folder in the details pane to edit it. Press Enter or tap the plus icon to add a task or subtask. Subtasks have independent checkboxes and use the same date picker and shortcuts as tasks. Click a folder's title above the task list to edit it in place. Press Enter or click away to save, or Escape to cancel. Switching between All, Today, folders, and task details does not reload the page. Task and folder changes save in the background; unfinished edits in other forms are preserved. Use the folder menu to change its color instantly. Deleted tasks, folders, and subtasks go to Trash, where they can be restored or deleted forever. Trashing a folder leaves its tasks in All; restoring it puts back tasks you have not moved elsewhere.
+A task workspace with All, Today, and custom folders. Each account has its own private workspace. Select a task to see its details and manage subtasks and notes. Click a task or subtask name to edit it in place; Enter or clicking away saves, and Escape cancels. Date choices save instantly. Click the folder in the details pane to move a task. Press Enter or tap the plus icon to add a task or subtask. Subtasks have independent checkboxes and use the same date picker and shortcuts as tasks. Click a folder's title above the task list to edit it in place. Press Enter or click away to save, or Escape to cancel. Switching between All, Today, folders, and task details does not reload the page. Task and folder changes save in the background; unfinished edits in other forms are preserved. Use the folder menu to change its color instantly. Deleted tasks, folders, and subtasks go to Trash, where they can be restored or deleted forever. Trashing a folder leaves its tasks in All; restoring it puts back tasks you have not moved elsewhere.
 
 Click a task date or calendar icon to move it to Today, Tomorrow, Next week (seven days from today), or No date. In the quick-add field, finish a title with today, tomorrow, or next week to see a date suggestion. Dismiss the suggestion to keep the words in the title. Use the flag in task details to mark a task as a priority.
 
@@ -8,7 +8,7 @@ Click a task date or calendar icon to move it to Today, Tomorrow, Next week (sev
 - **Search:** click the search icon beside the title in All, Today, a folder, or Matrix to find titles, notes, subtasks, and folder names in that view. Press Enter to search.
 - **Repeating tasks:** choose a daily, weekly, monthly, or yearly schedule in task details, with an interval from 1 to 365. Completing an occurrence creates the next task with its notes, priority, folder, and fresh subtasks. Dates follow the scheduled cadence and skip missed occurrences; monthly and yearly schedules preserve the original day where possible. An undated task starts today. Clearing its due date stops repetition.
 
-Today shows tasks whose due date matches the configured time zone. The theme follows your system until you choose light or dark in the sidebar. That choice stays in the current browser.
+All, Today, and folders show open tasks. Finished tasks live in Completed, above Trash in the sidebar; uncheck one there to reopen it. Today shows tasks whose due date matches the configured time zone. The theme follows your system until you choose light or dark in the sidebar. That choice stays in the current browser.
 
 <table>
   <tr>
@@ -52,6 +52,18 @@ Replace your install's `compose.yaml` with the file from the new release, keepin
 To follow new stable releases without changing the version number each time, set the image in your install's Compose file to `ghcr.io/charya-s/daylist:latest`. Keep your existing environment settings, port mapping, and data volume. Run `docker compose pull` and `docker compose up -d` to upgrade. The running app updates when you run these commands.
 
 Numbered image tags remain available if you prefer to stay on a specific version. The release workflow updates `latest` after publishing and testing a release; rerunning an older release does not move it backwards.
+
+### Test locally on Windows
+
+With Python and `uv` installed, open PowerShell in the project directory:
+
+```powershell
+$env:DJANGO_SECRET_KEY = 'local-testing-only-' + ('x' * 64)
+uv run --with-requirements requirements.txt python manage.py migrate
+uv run --with-requirements requirements.txt python manage.py runserver
+```
+
+Open `http://localhost:8000`. Keep PowerShell open; Ctrl+C stops the server. Code changes reload automatically, and refreshing shows template changes. Local data is stored in `data/daylist.sqlite3`, separate from the server's Docker volume. This key is only for local testing; use a private random secret on your server.
 
 ### Build from source
 

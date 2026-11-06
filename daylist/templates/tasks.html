@@ -6,7 +6,7 @@
   <aside class="sidebar">
     <a href="{% url 'all' %}" class="brand"><span class="brand-mark"><svg><use href="#icon-check"/></svg></span>Daylist</a>
     <nav aria-label="Task views">
-      <a href="{% url 'all' %}" {% if not active_list and not today_only and not matrix and not trash %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
+      <a href="{% url 'all' %}" {% if not active_list and not today_only and not matrix and not trash and not completed %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
       <a href="{% url 'today' %}" {% if today_only %}aria-current="page"{% endif %}><svg><use href="#icon-today"/></svg>Today <span class="nav-count">{{ today_count }}</span></a>
       <a href="{% url 'matrix' %}" {% if matrix %}aria-current="page"{% endif %}><svg><use href="#icon-matrix"/></svg>Matrix</a>
       <div class="lists list-heading">
@@ -20,7 +20,8 @@
       {% endfor %}
     </nav>
     <div class="sidebar-bottom">
-      <nav aria-label="Trash">
+      <nav aria-label="Completed and Trash">
+        <a href="{% url 'completed' %}" {% if completed %}aria-current="page"{% endif %}><svg><use href="#icon-check"/></svg>Completed <span class="nav-count">{{ completed_count }}</span></a>
       <a href="{% url 'trash' %}" {% if trash %}aria-current="page"{% endif %}><svg><use href="#icon-trash"/></svg>Trash <span class="nav-count">{{ trash_count }}</span></a>
       </nav>
     <footer class="sidebar-footer">
@@ -95,6 +96,7 @@
     {% if trash %}
       {% include "trash.html" %}
     {% else %}
+    {% if not completed %}
     <form class="quick-add" method="post" data-today="{{ quick_dates.today|date:'Y-m-d' }}" data-tomorrow="{{ quick_dates.tomorrow|date:'Y-m-d' }}" data-next-week="{{ next_week|date:'Y-m-d' }}">
       {% csrf_token %}
       <div class="quick-fields">
@@ -110,6 +112,7 @@
       {{ quick_form.errors }}
     </form>
 
+    {% endif %}
     {% if matrix %}
       <p class="matrix-hint">Tasks start sorted by flag and due date. Drag cards between quadrants to choose your own placement, or use the card’s Move menu. Choose Automatic to reset.</p>
       <div class="matrix-grid">
@@ -124,14 +127,14 @@
       </div>
     {% else %}
     {% for label, items in groups %}
-      <details data-group="{{ label }}" class="task-group{% if label == 'Overdue' %} overdue-group{% endif %}" {% if label != 'Completed' or selected.done %}open{% endif %}>
+      <details data-group="{{ label }}" class="task-group{% if label == 'Overdue' %} overdue-group{% endif %}" open>
         <summary><span class="chevron" aria-hidden="true"></span>{{ label }} <span class="group-count">{{ items|length }}</span></summary>
         <ul class="task-list">
           {% for task in items %}{% include "task.html" %}{% endfor %}
         </ul>
       </details>
     {% empty %}
-      <div class="empty"><span class="empty-icon"><svg><use href="#icon-check"/></svg></span><h2>{% if query %}No matching tasks{% elif today_only %}Nothing due today{% else %}A little room to start{% endif %}</h2><p>{% if query %}Try another search or clear it to see your tasks.{% elif today_only %}Add something you want to get done today.{% else %}Add a task above when you’re ready.{% endif %}</p></div>
+      <div class="empty"><span class="empty-icon"><svg><use href="#icon-check"/></svg></span><h2>{% if query %}No matching tasks{% elif completed %}No completed tasks{% elif today_only %}Nothing due today{% else %}A little room to start{% endif %}</h2><p>{% if query %}Try another search or clear it to see your tasks.{% elif completed %}Tasks you finish will appear here.{% elif today_only %}Add something you want to get done today.{% else %}Add a task above when you’re ready.{% endif %}</p></div>
     {% endfor %}
     {% endif %}
     {% endif %}
@@ -148,4 +151,4 @@
 {% include "folder-dialog.html" %}
 {% endblock %}
 
-{% block scripts %}{% include "folder-title-script.html" %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% include 'folder-picker-script.html' %}{% include 'workspace-script.html' %}{% include 'matrix-script.html' %}{% endblock %}
+{% block scripts %}{% include "folder-title-script.html" %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% include 'folder-picker-script.html' %}{% include 'inline-title-script.html' %}{% include 'workspace-script.html' %}{% include 'matrix-script.html' %}{% endblock %}

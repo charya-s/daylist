@@ -235,7 +235,7 @@ def group_tasks(tasks, today):
 @never_cache
 @login_required
 @require_http_methods(["GET", "POST"])
-def tasks(request, today_only=False, list_id=None, matrix=False, trash=False):
+def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, completed=False):
     today = localdate()
     quick_dates = {
         "today": today, "tomorrow": today + timedelta(days=1),
@@ -252,7 +252,7 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False):
     query = request.GET.get("q", "").strip()[:200]
     matrix_folder = request.GET.get("folder", "") if matrix else ""
     scoped_list = active_list
-    visible = all_owned.filter(deleted_at__isnull=False) if trash else owned
+    visible = all_owned.filter(deleted_at__isnull=False) if trash else owned.filter(done=completed)
     if matrix and matrix_folder:
         if matrix_folder == "none":
             visible = visible.filter(task_list__isnull=True)
@@ -516,12 +516,13 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False):
     trash_steps = list(trashed_steps.select_related("task").order_by("-deleted_at")) if trash else []
     return render(request, "tasks.html", {
         "view_url": view_url, "view_path": view_path, "task_separator": "&" if filters else "?",
-        "query": query, "clear_url": clear_url, "matrix": matrix, "trash": trash,
+        "query": query, "clear_url": clear_url, "matrix": matrix, "trash": trash, "completed": completed,
+        "completed_count": owned.filter(done=True).count(),
         "trash_count": trash_count, "trash_tasks": trash_tasks, "trash_folders": trash_folders,
         "trash_steps": trash_steps, "trash_items_count": len(trash_tasks) + len(trash_folders) + len(trash_steps), "matrix_folder": matrix_folder,
         "quadrants": quadrants, "matrix_choices": Task.MatrixQuadrant.choices, "matrix_form": matrix_form, "result_count": sum(not task.done for task in ordered) if matrix else len(ordered),
         "active_list": active_list, "today_only": today_only,
-        "view_title": "Trash" if trash else "Matrix" if matrix else active_list.name if active_list else "Today" if today_only else "All tasks",
+        "view_title": "Trash" if trash else "Completed" if completed else "Matrix" if matrix else active_list.name if active_list else "Today" if today_only else "All tasks",
         "today": today, "quick_dates": quick_dates, "next_week": quick_dates["next-week"], "selected": selected, "groups": group_tasks(ordered, today),
         "lists": lists.annotate(open_count=Count("tasks", filter=Q(tasks__done=False, tasks__owner=request.user, tasks__deleted_at__isnull=True))),
         "all_count": owned.filter(done=False).count(),
@@ -538,6 +539,7 @@ urlpatterns = [
     path("", tasks, name="all"),
     path("today/", tasks, {"today_only": True}, name="today"),
     path("matrix/", tasks, {"matrix": True}, name="matrix"),
+    path("completed/", tasks, {"completed": True}, name="completed"),
     path("trash/", tasks, {"trash": True}, name="trash"),
     path("account/password/", change_password, name="change-password"),
     path("lists/<int:list_id>/", tasks, name="task-list"),

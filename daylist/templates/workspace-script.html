@@ -46,10 +46,10 @@
         control.value = field.value;
         const editor = control.closest("details[data-dismiss-outside]");
         if (editor) editor.open = true;
-        if (control.matches(".folder-title-input")) {
+        if (control.matches(".folder-title-input, .inline-title-input")) {
           target.classList.add("is-editing");
           control.hidden = false;
-          target.querySelector(".folder-title").hidden = true;
+          target.querySelector(".folder-title, .inline-title-display").hidden = true;
         }
         if (['radio', 'checkbox'].includes(control.type)) control.checked = field.checked;
         control.dispatchEvent(new Event("input", { bubbles: true }));
@@ -114,7 +114,7 @@
     const link = event.target.closest(".workspace a[href]");
     if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
     const url = new URL(link.href);
-    if (url.origin !== location.origin || !/^\/(?:today\/|matrix\/|trash\/|lists\/\d+\/)?$/.test(url.pathname)) return;
+    if (url.origin !== location.origin || !/^\/(?:today\/|matrix\/|trash\/|completed\/|lists\/\d+\/)?$/.test(url.pathname)) return;
     event.preventDefault();
     navigate(url.href);
   });
@@ -213,6 +213,13 @@
         const menu = document.querySelector(".list-menu");
         if (menu) menu.open = true;
         target = menu?.querySelector("input[type=radio]:checked");
+      }
+      else if (action === "rename-task" || action === "edit-step") {
+        const replacement = forms.find(candidate => key(candidate) === submittedKey);
+        const button = replacement?.querySelector(".inline-title-display");
+        button?.focus({ preventScroll: true });
+        button?.blur();
+        window.getSelection()?.removeAllRanges();
       }
       else if (action === "rename-list") {
         // Focus the heading without leaving the title button outlined.

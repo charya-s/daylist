@@ -1,0 +1,11 @@
+<form class="inline-title-editor {% if step %}step-title-editor{% else %}task-title-editor{% endif %}{% if name_field.errors %} is-editing{% endif %}" method="post">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="{{ action }}">
+  <input type="hidden" name="task_id" value="{{ task.pk }}">
+  {% if step %}<input type="hidden" name="step_id" value="{{ step.pk }}">{% endif %}
+  {% if not step %}<h2 class="task-detail-title">{% endif %}<button type="button" class="inline-title-display" aria-label="Rename {% if step %}subtask{% else %}task{% endif %} {{ title }}" title="Rename {% if step %}subtask{% else %}task{% endif %}" hidden>{{ title }}</button>{% if not step %}</h2>{% endif %}
+  <label class="sr-only" for="{{ name_field.id_for_label }}">{% if step %}Subtask{% else %}Task{% endif %} name</label>
+  <input class="inline-title-input" type="text" name="{{ name_field.html_name }}" id="{{ name_field.id_for_label }}" value="{{ name_field.value|default_if_none:'' }}" data-original="{{ title }}" maxlength="200" required {% if name_field.errors %}aria-invalid="true"{% endif %}>
+  <div class="inline-title-errors">{{ name_field.errors }}</div>
+  <noscript><button class="quiet">Save name</button></noscript>
+</form>

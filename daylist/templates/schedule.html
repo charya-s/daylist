@@ -11,6 +11,7 @@
     <input type="hidden" name="action" value="{% if step %}reschedule-step{% else %}reschedule{% endif %}">
     <input type="hidden" name="task_id" value="{{ task.pk }}">
     {% if step %}<input type="hidden" name="step_id" value="{{ step.pk }}">{% endif %}
+    <input type="hidden" name="schedule" value="custom">
     <label class="native-date">Due date
       <input type="date" name="due" value="{{ item.due|date:'Y-m-d' }}">
     </label>
@@ -30,7 +31,7 @@
     </div>
     <div class="calendar-footer">
       <button class="quiet" name="schedule" value="no-date">Clear</button>
-      <button class="primary" name="schedule" value="custom">Apply</button>
+      <noscript><button class="primary" name="schedule" value="custom">Apply</button></noscript>
     </div>
   </form>
 </details>{% endwith %}
