@@ -1,5 +1,6 @@
 import re
 from datetime import timedelta
+from calendar import monthrange
 from urllib.parse import urlencode
 
 from django import forms
@@ -17,6 +18,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .models import Subtask, Task, TaskList
+from .planner import month_dates, calendar_context
 from .recurrence import complete_task
 from .trash import trash_folder, restore_folder as restore_trashed_folder
 
@@ -235,7 +237,7 @@ def group_tasks(tasks, today):
 @never_cache
 @login_required
 @require_http_methods(["GET", "POST"])
-def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, completed=False):
+def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, completed=False, calendar_view=False):
     today = localdate()
     quick_dates = {
         "today": today, "tomorrow": today + timedelta(days=1),
@@ -250,10 +252,16 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
     trash_count = all_owned.filter(deleted_at__isnull=False).count() + trashed_steps.count() + trashed_folders.count()
     active_list = get_object_or_404(lists, pk=list_id) if list_id else None
     query = request.GET.get("q", "").strip()[:200]
-    matrix_folder = request.GET.get("folder", "") if matrix else ""
+    matrix_folder = request.GET.get("folder", "") if matrix or calendar_view else ""
     scoped_list = active_list
+    try:
+        month = month_dates(request.GET.get("month", ""), today) if calendar_view else None
+    except ValueError:
+        return HttpResponseBadRequest("Choose a valid calendar month.")
     visible = all_owned.filter(deleted_at__isnull=False) if trash else owned.filter(done=completed)
-    if matrix and matrix_folder:
+    if calendar_view:
+        visible = owned.filter(due__gte=month, due__lte=month.replace(day=monthrange(month.year, month.month)[1]))
+    if (matrix or calendar_view) and matrix_folder:
         if matrix_folder == "none":
             visible = visible.filter(task_list__isnull=True)
         else:
@@ -272,9 +280,12 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
         filters["q"] = query
     if matrix_folder:
         filters["folder"] = matrix_folder
+    if calendar_view:
+        filters["month"] = month.isoformat()[:7]
     view_path = request.path
     view_url = view_path + ("?" + urlencode(filters) if filters else "")
-    clear_url = view_path + ("?" + urlencode({"folder": matrix_folder}) if matrix_folder else "")
+    clear_filters = {name: value for name, value in filters.items() if name != "q"}
+    clear_url = view_path + ("?" + urlencode(clear_filters) if clear_filters else "")
 
     selected_id = valid_id(request.GET.get("task"))
     if trash and selected_id:
@@ -321,6 +332,19 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
             else:
                 return HttpResponseBadRequest("Unknown Trash action.")
             return redirect(view_url)
+        elif action == "reorder-tasks":
+            if not active_list or query:
+                return HttpResponseBadRequest("Open a folder without a search to rearrange tasks.")
+            ids = [valid_id(value) for value in request.POST.getlist("order")]
+            with transaction.atomic():
+                reorderable = list(owned.filter(task_list=active_list, done=False).select_for_update())
+                if len(ids) != len(reorderable) or set(ids) != {task.pk for task in reorderable}:
+                    return HttpResponseBadRequest("The folder changed. Refresh before rearranging tasks.")
+                positions = {pk: index for index, pk in enumerate(ids, start=1)}
+                for task in reorderable:
+                    task.position = positions[task.pk]
+                Task.objects.bulk_update(reorderable, ["position"])
+            return back(selected_id)
         elif action == "add":
             quick_form = QuickTaskForm(request.POST)
             if quick_form.is_valid():
@@ -366,6 +390,7 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
                         "complete-step", "reopen-step", "delete-step", "reschedule", "reschedule-step", "flag", "unflag", "save-notes", "save-repeat", "set-matrix"}:
             task = get_object_or_404(visible, pk=valid_id(request.POST.get("task_id")))
             target = owned.filter(pk=task.pk)
+            original_folder_id = task.task_list_id
             if action == "delete":
                 target.update(deleted_at=now())
                 return back(selected_id if selected_id != task.pk else None)
@@ -428,6 +453,8 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
                 if form.is_valid():
                     changes = dict(form.cleaned_data)
                     changes["restore_folder"] = None
+                    if (changes["task_list"].pk if changes["task_list"] else None) != original_folder_id:
+                        changes["position"] = 0
                     changes["repeat_anchor"] = changes["due"] if task.repeat else None
                     if changes["due"] is None:
                         changes.update(repeat="", repeat_every=1)
@@ -443,6 +470,8 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
                     values = dict(form.cleaned_data)
                     if action == "move-task":
                         values["restore_folder"] = None
+                        if (values["task_list"].pk if values["task_list"] else None) != original_folder_id:
+                            values["position"] = 0
                     target.update(**values)
                     return back(task.pk if visible.filter(pk=task.pk).exists() else None)
                 selected = get_object_or_404(visible, pk=task.pk)
@@ -491,10 +520,11 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
                   SubtaskTitleForm(instance=step, prefix=f"step-{step.pk}"))
                  for step in selected.subtasks.filter(deleted_at__isnull=True)]
 
+    ordering = ("position", "-pk") if active_list else ("done", F("due").asc(nulls_last=True), "-pk")
     ordered = list(visible.select_related("task_list").annotate(
         step_count=Count("subtasks", filter=Q(subtasks__deleted_at__isnull=True)),
         done_steps=Count("subtasks", filter=Q(subtasks__done=True, subtasks__deleted_at__isnull=True)),
-    ).order_by("done", F("due").asc(nulls_last=True), "-pk"))
+    ).order_by(*ordering))
     quadrants = [
         {"key": "do", "title": "Do first", "description": "Important & urgent", "tasks": []},
         {"key": "schedule", "title": "Schedule", "description": "Important & not urgent", "tasks": []},
@@ -514,7 +544,10 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
     trash_tasks = sorted(ordered, key=lambda task: task.deleted_at, reverse=True) if trash else []
     trash_folders = list(trashed_folders.order_by("-deleted_at")) if trash else []
     trash_steps = list(trashed_steps.select_related("task").order_by("-deleted_at")) if trash else []
+    planner = calendar_context(month, ordered, view_path, filters, today) if calendar_view else {}
     return render(request, "tasks.html", {
+        **planner, "calendar_view": calendar_view, "folder_tasks": ordered if active_list else [],
+        "can_reorder": bool(active_list and not query),
         "view_url": view_url, "view_path": view_path, "task_separator": "&" if filters else "?",
         "query": query, "clear_url": clear_url, "matrix": matrix, "trash": trash, "completed": completed,
         "completed_count": owned.filter(done=True).count(),
@@ -522,7 +555,7 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
         "trash_steps": trash_steps, "trash_items_count": len(trash_tasks) + len(trash_folders) + len(trash_steps), "matrix_folder": matrix_folder,
         "quadrants": quadrants, "matrix_choices": Task.MatrixQuadrant.choices, "matrix_form": matrix_form, "result_count": sum(not task.done for task in ordered) if matrix else len(ordered),
         "active_list": active_list, "today_only": today_only,
-        "view_title": "Trash" if trash else "Completed" if completed else "Matrix" if matrix else active_list.name if active_list else "Today" if today_only else "All tasks",
+        "view_title": "Trash" if trash else "Completed" if completed else "Calendar" if calendar_view else "Matrix" if matrix else active_list.name if active_list else "Today" if today_only else "All tasks",
         "today": today, "quick_dates": quick_dates, "next_week": quick_dates["next-week"], "selected": selected, "groups": group_tasks(ordered, today),
         "lists": lists.annotate(open_count=Count("tasks", filter=Q(tasks__done=False, tasks__owner=request.user, tasks__deleted_at__isnull=True))),
         "all_count": owned.filter(done=False).count(),
@@ -539,6 +572,7 @@ urlpatterns = [
     path("", tasks, name="all"),
     path("today/", tasks, {"today_only": True}, name="today"),
     path("matrix/", tasks, {"matrix": True}, name="matrix"),
+    path("calendar/", tasks, {"calendar_view": True}, name="calendar"),
     path("completed/", tasks, {"completed": True}, name="completed"),
     path("trash/", tasks, {"trash": True}, name="trash"),
     path("account/password/", change_password, name="change-password"),

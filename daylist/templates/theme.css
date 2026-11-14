@@ -419,3 +419,58 @@ h1 { font: 500 clamp(34px, 4vw, 56px)/1.05 Georgia, serif; letter-spacing: -.045
 .step-title-editor { flex: 1; }
 .step.done .inline-title-display { text-decoration: line-through; color: var(--muted); }
 .inline-title-errors .errorlist { margin: 5px 0; font-size: 12px; }
+
+/* Visible, reversible deletion controls. */
+.trash-control { display: inline-flex; flex: none; }
+.trash-button { color: var(--muted); }
+.trash-button:hover, .trash-button:focus-visible { color: var(--danger); background: var(--hover); }
+.detail-actions { display: flex; align-items: center; gap: 3px; }
+.task > .trash-control { margin-left: 2px; }
+.reorder-hint { margin: -8px 0 10px; color: var(--muted); font-size: 12px; }
+.folder-order-form { display: none; }
+.task-order-handle { flex: none; cursor: grab; touch-action: none; }
+.task-order-handle:active { cursor: grabbing; }
+.folder-task-list .task.is-dragging { opacity: .35; background: var(--selected); }
+.workspace.calendar-view:not(.has-selection) { grid-template-columns: 222px minmax(0, 1fr); }
+.calendar-view:not(.has-selection) .detail-pane.placeholder { display: none; }
+.deadline-calendar { margin-top: 25px; }
+.deadline-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+.deadline-toolbar h2 { margin: 0; font: 500 24px Georgia, serif; }
+.month-navigation { display: flex; align-items: center; gap: 3px; flex: none; }
+.deadline-grid { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+.deadline-weekdays, .deadline-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); min-width: 630px; }
+.deadline-weekdays { background: var(--field); color: var(--muted); font-size: 12px; text-align: center; }
+.deadline-weekdays > span { padding: 9px 0; }
+.deadline-week { border-top: 1px solid var(--line); }
+.deadline-day { min-height: 115px; padding: 7px 5px; min-width: 0; border-right: 1px solid var(--line); }
+.deadline-day:last-child { border-right: 0; }
+.deadline-day > time { display: grid; place-items: center; width: 25px; height: 25px; margin-bottom: 5px; }
+.deadline-day.is-today > time { border-radius: 50%; background: var(--accent); color: var(--on-accent); }
+.deadline-day.outside-month { background: var(--field); }
+.deadline-entry { display: flex; align-items: center; gap: 1px; margin: 4px 0; border-radius: 5px; background: var(--field); }
+.deadline-task { display: block; flex: 1; min-width: 0; padding: 5px; border-left: 3px solid var(--folder-color, var(--accent)); border-radius: 4px; font-size: 12px; }
+.deadline-task > span { display: block; overflow-wrap: anywhere; }
+.deadline-task small { display: block; margin-top: 3px; font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }
+.deadline-entry.done .deadline-task > span { text-decoration: line-through; color: var(--muted); }
+.deadline-entry .trash-button { width: 23px; height: 28px; min-width: 23px; padding: 3px; }
+.deadline-entry .trash-button svg { width: 13px; height: 13px; }
+.calendar-empty { color: var(--muted); text-align: center; padding: 18px; font-size: 13px; }
+@media (max-width: 1030px) { .workspace.calendar-view:not(.has-selection) { grid-template-columns: 190px minmax(0, 1fr); } }
+@media (max-width: 550px) { .workspace.calendar-view:not(.has-selection) { display: block; } .deadline-toolbar h2 { font-size: 21px; } }
+
+.deadline-day-count, .calendar-agenda { display: none; }
+@media (max-width: 650px) {
+  .deadline-weekdays, .deadline-week { min-width: 0; }
+  .deadline-day { min-height: 72px; padding: 5px 3px; }
+  .deadline-grid .deadline-entry { display: none; }
+  .deadline-day-count { display: block; padding: 2px; font-size: 11px; color: var(--accent); border-radius: 4px; overflow-wrap: anywhere; }
+  .deadline-day-count:hover { background: var(--selected); }
+  .calendar-agenda { display: block; margin-top: 22px; }
+  .agenda-day { scroll-margin-top: 15px; margin: 20px 0; }
+  .agenda-day h3 { margin: 0 0 8px; color: var(--muted); font-size: 13px; font-weight: 600; }
+  .agenda-entry { display: flex; align-items: center; gap: 6px; margin: 7px 0; background: var(--field); border-radius: 7px; border: 1px solid var(--line); }
+  .agenda-task { flex: 1; min-width: 0; padding: 9px; border-left: 3px solid var(--folder-color, var(--accent)); border-radius: 6px; font-size: 14px; overflow-wrap: anywhere; }
+  .agenda-task small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+  .agenda-entry.done .agenda-task > span { text-decoration: line-through; color: var(--muted); }
+  .agenda-entry .trash-control { padding-right: 3px; }
+}

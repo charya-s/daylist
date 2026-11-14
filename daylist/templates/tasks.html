@@ -2,13 +2,14 @@
 {% block title %}{{ view_title }} · Daylist{% endblock %}
 {% block header %}{% endblock %}
 {% block content %}
-<div class="workspace{% if matrix %} matrix-view{% endif %}{% if trash %} trash-view{% endif %}{% if selected %} has-selection{% endif %}">
+<div class="workspace{% if matrix %} matrix-view{% endif %}{% if calendar_view %} calendar-view{% endif %}{% if trash %} trash-view{% endif %}{% if selected %} has-selection{% endif %}">
   <aside class="sidebar">
     <a href="{% url 'all' %}" class="brand"><span class="brand-mark"><svg><use href="#icon-check"/></svg></span>Daylist</a>
     <nav aria-label="Task views">
-      <a href="{% url 'all' %}" {% if not active_list and not today_only and not matrix and not trash and not completed %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
+      <a href="{% url 'all' %}" {% if not active_list and not today_only and not matrix and not trash and not completed and not calendar_view %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
       <a href="{% url 'today' %}" {% if today_only %}aria-current="page"{% endif %}><svg><use href="#icon-today"/></svg>Today <span class="nav-count">{{ today_count }}</span></a>
       <a href="{% url 'matrix' %}" {% if matrix %}aria-current="page"{% endif %}><svg><use href="#icon-matrix"/></svg>Matrix</a>
+      <a href="{% url 'calendar' %}" {% if calendar_view %}aria-current="page"{% endif %}><svg><use href="#icon-today"/></svg>Calendar</a>
       <div class="lists list-heading">
         <span class="folder-heading">Folders</span>
         <button type="button" class="icon-button" id="add-folder" aria-label="Add folder" aria-haspopup="dialog" aria-controls="folder-dialog"><svg aria-hidden="true"><use href="#icon-plus"/></svg></button>
@@ -49,7 +50,7 @@
         {% else %}
           <h1>{{ view_title }}</h1>
         {% endif %}
-        <span class="open-count">{% if trash %}{{ trash_items_count }} item{{ trash_items_count|pluralize }}{% else %}{% if query %}{{ result_count }} result{{ result_count|pluralize }} · {% endif %}{{ view_count }} open{% endif %}</span>
+        <span class="open-count">{% if trash %}{{ trash_items_count }} item{{ trash_items_count|pluralize }}{% elif completed %}{{ completed_count }} completed{% elif calendar_view %}{{ deadline_count }} deadline{{ deadline_count|pluralize }}{% else %}{% if query %}{{ result_count }} result{{ result_count|pluralize }} · {% endif %}{{ view_count }} open{% endif %}</span>
       </div>
       <form class="task-filters" method="get" action="{{ view_path }}" role="search">
         <details class="search-tools" data-dismiss-outside>
@@ -64,7 +65,8 @@
           </div>
         </details>
         {% if query %}<a class="icon-button clear-search" href="{{ clear_url }}" aria-label="Clear search" title="Clear search"><svg aria-hidden="true"><use href="#icon-close"/></svg></a>{% endif %}
-        {% if matrix %}
+        {% if calendar_view %}<input type="hidden" name="month" value="{{ calendar_month|date:'Y-m' }}">{% endif %}
+        {% if matrix or calendar_view %}
           <label class="sr-only" for="matrix-folder">Filter by folder</label>
           <select name="folder" id="matrix-folder">
             <option value="">All folders</option>
@@ -84,17 +86,17 @@
               <input type="hidden" name="action" value="color-list">
               <noscript><button class="primary">Save color</button></noscript>
             </form>
-            <form method="post">
-              {% csrf_token %}
-              <button class="quiet danger" name="action" value="delete-list">Move folder to Trash</button>
-            </form>
+
           </div>
         </details>
+        {% include "trash-button.html" with delete_action="delete-list" delete_title=active_list.name %}
       {% endif %}
     </div>
 
     {% if trash %}
       {% include "trash.html" %}
+    {% elif calendar_view %}
+      {% include "deadline-calendar.html" %}
     {% else %}
     {% if not completed %}
     <form class="quick-add" method="post" data-today="{{ quick_dates.today|date:'Y-m-d' }}" data-tomorrow="{{ quick_dates.tomorrow|date:'Y-m-d' }}" data-next-week="{{ next_week|date:'Y-m-d' }}">
@@ -125,6 +127,13 @@
           </section>
         {% endfor %}
       </div>
+    {% elif active_list %}
+      {% if folder_tasks %}
+        {% if can_reorder %}<p class="reorder-hint">Drag the grip to rearrange tasks.</p><form class="folder-order-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="reorder-tasks"></form>{% endif %}
+        <ul class="task-list folder-task-list" aria-label="Tasks in {{ active_list.name }}">{% for task in folder_tasks %}{% include "task.html" %}{% endfor %}</ul>
+      {% else %}
+        <div class="empty"><span class="empty-icon"><svg><use href="#icon-check"/></svg></span><h2>{% if query %}No matching tasks{% else %}A little room to start{% endif %}</h2><p>{% if query %}Try another search or clear it to see your tasks.{% else %}Add a task above when you're ready.{% endif %}</p></div>
+      {% endif %}
     {% else %}
     {% for label, items in groups %}
       <details data-group="{{ label }}" class="task-group{% if label == 'Overdue' %} overdue-group{% endif %}" open>
@@ -151,4 +160,4 @@
 {% include "folder-dialog.html" %}
 {% endblock %}
 
-{% block scripts %}{% include "folder-title-script.html" %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% include 'folder-picker-script.html' %}{% include 'inline-title-script.html' %}{% include 'workspace-script.html' %}{% include 'matrix-script.html' %}{% endblock %}
+{% block scripts %}{% include "folder-title-script.html" %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% include 'folder-picker-script.html' %}{% include 'inline-title-script.html' %}{% include 'workspace-script.html' %}{% include 'matrix-script.html' %}{% include 'folder-order-script.html' %}{% endblock %}

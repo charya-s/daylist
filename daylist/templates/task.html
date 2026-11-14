@@ -1,4 +1,5 @@
-<li data-task-id="{{ task.pk }}" {% if matrix %}draggable="true"{% endif %} class="task{% if task.done %} done{% endif %}{% if task.pk == selected.pk %} selected{% endif %}">
+<li data-task-id="{{ task.pk }}" {% if matrix or can_reorder %}draggable="true"{% endif %} class="task{% if task.done %} done{% endif %}{% if task.pk == selected.pk %} selected{% endif %}">
+  {% if can_reorder %}<button type="button" class="icon-button task-order-handle" aria-label="Reorder {{ task.title }}" title="Drag to reorder; use Up and Down keys to move"><svg aria-hidden="true"><use href="#icon-grip"/></svg></button>{% endif %}
   <form method="post">
     {% csrf_token %}
     <input type="hidden" name="task_id" value="{{ task.pk }}">
@@ -31,4 +32,5 @@
       </form>
     </details>
   {% endif %}
+  {% include "trash-button.html" with delete_action="delete" delete_title=task.title %}
 </li>

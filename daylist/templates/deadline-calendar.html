@@ -1,0 +1,45 @@
+<section class="deadline-calendar" aria-label="Task deadlines">
+  <div class="deadline-toolbar">
+    <h2>{{ month_title }}</h2>
+    <div class="month-navigation">
+      <a class="quiet" href="{{ current_month_url }}">This month</a>
+      {% if previous_month_url %}<a class="icon-button" href="{{ previous_month_url }}" aria-label="Previous month"><svg><use href="#icon-chevron-left"/></svg></a>{% endif %}
+      {% if next_month_url %}<a class="icon-button" href="{{ next_month_url }}" aria-label="Next month"><svg><use href="#icon-chevron-right"/></svg></a>{% endif %}
+    </div>
+  </div>
+  <div class="deadline-grid" role="table" aria-label="{{ month_title }} deadlines">
+    <div class="deadline-weekdays" role="row"><span role="columnheader">Mon</span><span role="columnheader">Tue</span><span role="columnheader">Wed</span><span role="columnheader">Thu</span><span role="columnheader">Fri</span><span role="columnheader">Sat</span><span role="columnheader">Sun</span></div>
+    {% for week in calendar_weeks %}
+      <div class="deadline-week" role="row">
+      {% for day in week %}
+        <div class="deadline-day{% if not day.date %} outside-month{% endif %}{% if day.date == today %} is-today{% endif %}" role="cell" {% if day.date %}data-date="{{ day.date|date:'Y-m-d' }}" aria-label="{{ day.date|date:'l, F j, Y' }}"{% endif %}>
+          {% if day.date %}<time datetime="{{ day.date|date:'Y-m-d' }}" {% if day.date == today %}aria-current="date"{% endif %}>{{ day.date|date:"j" }}</time>{% endif %}
+          {% if day.tasks %}<a class="deadline-day-count" href="#deadline-agenda-{{ day.date|date:'Y-m-d' }}" aria-label="{{ day.tasks|length }} deadline{{ day.tasks|pluralize }} on {{ day.date|date:'F j' }}">{{ day.tasks|length }} task{{ day.tasks|pluralize }}</a>{% endif %}
+          {% for task in day.tasks %}
+            <div class="deadline-entry{% if task.done %} done{% endif %}">
+              <a class="deadline-task folder-color" data-color="{{ task.task_list.color|default:'default' }}" data-task-id="{{ task.pk }}" href="{{ view_url }}{{ task_separator }}task={{ task.pk }}" title="{{ task.title }}{% if task.task_list %} · {{ task.task_list.name }}{% endif %}">
+                <span>{{ task.title }}</span>{% if task.task_list %}<small>{{ task.task_list.name }}</small>{% endif %}
+              </a>
+              {% include "trash-button.html" with delete_action="delete" delete_title=task.title %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  <div class="calendar-agenda" aria-label="Deadlines this month">
+    {% for week in calendar_weeks %}{% for day in week %}{% if day.tasks %}
+      <section id="deadline-agenda-{{ day.date|date:'Y-m-d' }}" class="agenda-day">
+        <h3>{{ day.date|date:"l, F j" }}</h3>
+        {% for task in day.tasks %}
+          <div class="agenda-entry{% if task.done %} done{% endif %}">
+            <a class="agenda-task folder-color" data-color="{{ task.task_list.color|default:'default' }}" href="{{ view_url }}{{ task_separator }}task={{ task.pk }}"><span>{{ task.title }}</span>{% if task.task_list %}<small>{{ task.task_list.name }}</small>{% endif %}</a>
+            {% include "trash-button.html" with delete_action="delete" delete_title=task.title %}
+          </div>
+        {% endfor %}
+      </section>
+    {% endif %}{% endfor %}{% endfor %}
+  </div>
+  {% if not deadline_count %}<p class="calendar-empty">No deadlines this month{% if matrix_folder %} in this folder{% endif %}{% if query %} matching your search{% endif %}.</p>{% endif %}
+</section>

@@ -51,6 +51,7 @@ class Task(models.Model):
     task_list = models.ForeignKey(TaskList, on_delete=models.SET_NULL, null=True,
                                   blank=True, related_name="tasks")
     restore_folder = models.ForeignKey(TaskList, on_delete=models.SET_NULL, null=True, blank=True, related_name="restorable_tasks")
+    position = models.PositiveIntegerField(default=0, db_index=True)
     notes = models.TextField(blank=True, default="")
     flagged = models.BooleanField(default=False)
     matrix_quadrant = models.CharField(max_length=10, choices=MatrixQuadrant.choices, blank=True, default="")

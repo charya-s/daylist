@@ -114,7 +114,8 @@
     const link = event.target.closest(".workspace a[href]");
     if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
     const url = new URL(link.href);
-    if (url.origin !== location.origin || !/^\/(?:today\/|matrix\/|trash\/|completed\/|lists\/\d+\/)?$/.test(url.pathname)) return;
+    if (url.hash && url.pathname === location.pathname && url.search === location.search) return;
+    if (url.origin !== location.origin || !/^\/(?:today\/|matrix\/|trash\/|completed\/|calendar\/|lists\/\d+\/)?$/.test(url.pathname)) return;
     event.preventDefault();
     navigate(url.href);
   });
@@ -205,6 +206,9 @@
         target = focusedForm && [...focusedForm.elements].find(control => focus.id ? control.id === focus.id : control.name === focus.name);
       } else if (action === "add") target = document.querySelector("#quick-title");
       else if (action === "add-step") target = document.querySelector('.add-step input:not([type=hidden])');
+      else if (action === "reorder-tasks") {
+        target = document.querySelector('.folder-task-list .task[data-task-id="' + form.dataset.movedTask + '"] .task-order-handle');
+      }
       else if (action === "set-matrix") {
         const handle = document.querySelector('.matrix-grid .task[data-task-id="' + data.get("task_id") + '"] .matrix-move summary');
         target = handle?.getClientRects().length ? handle : document.querySelector("#quick-title");

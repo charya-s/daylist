@@ -1,0 +1,6 @@
+<form class="trash-control" method="post">
+  {% csrf_token %}
+  {% if task %}<input type="hidden" name="task_id" value="{{ task.pk }}">{% endif %}
+  {% if step %}<input type="hidden" name="step_id" value="{{ step.pk }}">{% endif %}
+  <button class="icon-button trash-button" name="action" value="{{ delete_action }}" aria-label="Move {{ delete_title }} to Trash" title="Move {{ delete_title }} to Trash"><svg aria-hidden="true"><use href="#icon-trash"/></svg></button>
+</form>

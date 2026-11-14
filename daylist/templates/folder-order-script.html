@@ -1,0 +1,143 @@
+<script>
+(() => {
+  let drag;
+  let frame;
+  let suppressUntil = 0;
+  const busy = () => !!document.querySelector('.workspace form[aria-busy="true"]');
+  const order = list => [...list.querySelectorAll(":scope > .task")].map(card => card.dataset.taskId);
+  function preview(card) {
+    const rect = card.getBoundingClientRect();
+    const ghost = card.cloneNode(true);
+    ghost.removeAttribute("draggable");
+    ghost.classList.add("matrix-drag-ghost");
+    ghost.inert = true;
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.style.width = rect.width + "px";
+    ghost.style.height = rect.height + "px";
+    ghost.style.left = rect.left + "px";
+    ghost.style.top = rect.top + "px";
+    for (const node of ghost.querySelectorAll("[id]")) node.removeAttribute("id");
+    for (const menu of ghost.querySelectorAll("details")) menu.open = false;
+    document.body.append(ghost);
+    return ghost;
+  }
+  function restore(list, ids) {
+    for (const id of ids) {
+      const card = [...list.children].find(node => node.dataset.taskId === id);
+      if (card) list.append(card);
+    }
+  }
+  function cleanup(rollback = false) {
+    if (drag) {
+      if (rollback) restore(drag.list, drag.original);
+      drag.card.classList.remove("is-dragging");
+      drag.ghost?.remove();
+      if (drag.handle?.hasPointerCapture(drag.id)) drag.handle.releasePointerCapture(drag.id);
+    }
+    drag = null;
+    cancelAnimationFrame(frame);
+  }
+  function save(list, original, moved) {
+    const ids = order(list);
+    if (ids.join(",") === original.join(",")) return;
+    const form = document.querySelector(".folder-order-form");
+    if (!form || busy()) { restore(list, original); return; }
+    for (const input of form.querySelectorAll('[name="order"]')) input.remove();
+    for (const id of ids) {
+      const input = document.createElement("input");
+      input.type = "hidden"; input.name = "order"; input.value = id;
+      form.append(input);
+    }
+    form.dataset.movedTask = moved;
+    form.addEventListener("daylist:save-failed", () => restore(list, original), { once: true });
+    form.requestSubmit();
+  }
+  function place(target, y) {
+    if (!drag || !target || !drag.list.contains(target) || target === drag.card) return;
+    const rect = target.getBoundingClientRect();
+    target[y < rect.y + rect.height / 2 ? "before" : "after"](drag.card);
+  }
+  document.addEventListener("dragstart", event => {
+    const card = event.target.closest(".folder-task-list .task[draggable=true]");
+    if (!card) return;
+    if (busy() || event.target.closest("form, .schedule-menu, input, select, textarea") || drag?.id) {
+      event.preventDefault(); return;
+    }
+    const list = card.closest(".folder-task-list");
+    drag = { card, list, original: order(list) };
+    window.getSelection()?.removeAllRanges();
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", card.dataset.taskId);
+    const rect = card.getBoundingClientRect();
+    const ghost = preview(card);
+    drag.ghost = ghost;
+    event.dataTransfer.setDragImage(ghost, Math.max(0, event.clientX - rect.x), Math.max(0, event.clientY - rect.y));
+    requestAnimationFrame(() => { ghost.remove(); if (drag?.card === card) card.classList.add("is-dragging"); });
+  });
+  document.addEventListener("dragover", event => {
+    if (!drag || drag.id || !event.target.closest(".folder-task-list")) return;
+    event.preventDefault(); event.dataTransfer.dropEffect = "move";
+    place(event.target.closest(".task"), event.clientY);
+  });
+  document.addEventListener("drop", event => {
+    if (!drag || drag.id) return;
+    event.preventDefault();
+    const { list, original, card } = drag;
+    const inside = list.contains(event.target);
+    cleanup(!inside);
+    suppressUntil = Date.now() + 400;
+    if (inside) save(list, original, card.dataset.taskId);
+  });
+  document.addEventListener("dragend", () => cleanup(true));
+  document.addEventListener("keydown", event => {
+    const handle = event.target.closest(".task-order-handle");
+    if (!handle || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    if (busy()) return;
+    const card = handle.closest(".task"), list = card.parentElement, original = order(list);
+    if (event.key === "ArrowUp") card.previousElementSibling?.before(card);
+    else card.nextElementSibling?.after(card);
+    save(list, original, card.dataset.taskId);
+  });
+  document.addEventListener("pointerdown", event => {
+    const handle = event.target.closest(".task-order-handle");
+    if (!handle || event.pointerType !== "touch" || !event.isPrimary || busy()) return;
+    const card = handle.closest(".task"), list = card.parentElement;
+    drag = { id: event.pointerId, handle, card, list, original: order(list), startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY };
+    handle.setPointerCapture(event.pointerId);
+  });
+  function follow() {
+    if (!drag?.active) return;
+    const speed = drag.y < 70 ? -12 : drag.y > innerHeight - 70 ? 12 : 0;
+    if (speed) window.scrollBy(0, speed);
+    place(document.elementFromPoint(drag.x, drag.y)?.closest(".folder-task-list .task"), drag.y);
+    frame = requestAnimationFrame(follow);
+  }
+  document.addEventListener("pointermove", event => {
+    if (!drag?.id || drag.id !== event.pointerId) return;
+    drag.x = event.clientX; drag.y = event.clientY;
+    if (!drag.active && Math.hypot(drag.x - drag.startX, drag.y - drag.startY) < 8) return;
+    event.preventDefault();
+    if (!drag.active) {
+      drag.active = true; drag.ghost = preview(drag.card);
+      drag.ghost.style.left = "0"; drag.ghost.style.top = "0";
+      drag.card.classList.add("is-dragging"); follow();
+    }
+    drag.ghost.style.transform = `translate(${drag.x - 25}px, ${drag.y - 25}px)`;
+  }, { passive: false });
+  document.addEventListener("pointerup", event => {
+    if (!drag?.id || drag.id !== event.pointerId) return;
+    const { list, card, original, active } = drag;
+    const inside = !!document.elementFromPoint(event.clientX, event.clientY)?.closest(".folder-task-list");
+    event.preventDefault(); cleanup(!inside); suppressUntil = Date.now() + 400;
+    if (active && inside) save(list, original, card.dataset.taskId);
+  });
+  document.addEventListener("pointercancel", event => { if (drag?.id === event.pointerId) cleanup(true); });
+  document.addEventListener("click", event => {
+    if (Date.now() < suppressUntil && event.target.closest(".folder-task-list")) {
+      event.preventDefault(); event.stopPropagation();
+    }
+  }, true);
+  document.addEventListener("daylist:ready", () => cleanup());
+})();
+</script>

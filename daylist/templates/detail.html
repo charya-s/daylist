@@ -7,6 +7,7 @@
         <input type="hidden" name="task_id" value="{{ selected.pk }}">
         <button class="icon-button priority-toggle" name="action" value="{% if selected.flagged %}unflag{% else %}flag{% endif %}" aria-label="Priority flag" aria-pressed="{{ selected.flagged|yesno:'true,false' }}" title="{% if selected.flagged %}Remove priority flag{% else %}Flag as priority{% endif %}"><svg aria-hidden="true"><use href="#icon-flag"/></svg></button>
       </form>
+      {% include "trash-button.html" with task=selected delete_action="delete" delete_title=selected.title %}
     </div>
     <a class="icon-button close-detail" href="{{ view_url }}" aria-label="Close task details" title="Close task details"><svg><use href="#icon-close"/></svg></a>
     <a class="back-detail quiet" href="{{ view_url }}"><svg><use href="#icon-arrow"/></svg> Back to tasks</a>
@@ -52,17 +53,7 @@
               </form>
               {% include "inline-title.html" with name_field=form.title title=step.title task=selected action="edit-step" %}
               {% include "schedule.html" with task=selected step=step show_calendar=True %}
-              <details class="step-edit" data-dismiss-outside {% if form.errors %}open{% endif %}>
-                <summary class="icon-button" aria-label="Actions for subtask {{ step.title }}" title="Subtask actions"><svg><use href="#icon-settings"/></svg></summary>
-                <div class="menu-panel">
-                  <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="task_id" value="{{ selected.pk }}">
-                    <input type="hidden" name="step_id" value="{{ step.pk }}">
-                    <button class="quiet danger" name="action" value="delete-step">Move subtask to Trash</button>
-                  </form>
-                </div>
-              </details>
+              {% include "trash-button.html" with task=selected delete_action="delete-step" delete_title=step.title %}
             </div>
           </li>
           {% endfor %}
@@ -85,10 +76,5 @@
       {{ notes_form.notes }}{{ notes_form.notes.errors }}
       <button class="quiet notes-save" name="action" value="save-notes">Save notes</button>
     </form>
-    <form class="delete-task" method="post">
-          {% csrf_token %}
-          <input type="hidden" name="task_id" value="{{ selected.pk }}">
-          <button class="quiet danger" name="action" value="delete">Move to Trash</button>
-        </form>
   </div>
 </aside>
