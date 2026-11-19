@@ -52,6 +52,8 @@ class Task(models.Model):
                                   blank=True, related_name="tasks")
     restore_folder = models.ForeignKey(TaskList, on_delete=models.SET_NULL, null=True, blank=True, related_name="restorable_tasks")
     position = models.PositiveIntegerField(default=0, db_index=True)
+    all_position = models.PositiveIntegerField(default=0, db_index=True)
+    today_position = models.PositiveIntegerField(default=0, db_index=True)
     notes = models.TextField(blank=True, default="")
     flagged = models.BooleanField(default=False)
     matrix_quadrant = models.CharField(max_length=10, choices=MatrixQuadrant.choices, blank=True, default="")
@@ -79,3 +81,19 @@ class Subtask(models.Model):
 
     class Meta:
         ordering = ["pk"]
+
+
+class TaskListTemplate(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    name = models.CharField(max_length=80)
+    color = models.CharField(max_length=7, choices=TaskList.Color.choices, default=TaskList.Color.DEFAULT)
+    tasks = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "pk"]
+        constraints = [models.UniqueConstraint(fields=["owner", "name"], name="unique_tasklist_template_name")]
+
+    def __str__(self):
+        return self.name

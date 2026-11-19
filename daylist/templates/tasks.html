@@ -2,14 +2,15 @@
 {% block title %}{{ view_title }} · Daylist{% endblock %}
 {% block header %}{% endblock %}
 {% block content %}
-<div class="workspace{% if matrix %} matrix-view{% endif %}{% if calendar_view %} calendar-view{% endif %}{% if trash %} trash-view{% endif %}{% if selected %} has-selection{% endif %}">
+<div class="workspace{% if matrix %} matrix-view{% endif %}{% if calendar_view %} calendar-view{% endif %}{% if trash %} trash-view{% endif %}{% if selected %} has-selection{% endif %}{% if templates_active %} template-view{% endif %}">
   <aside class="sidebar">
     <a href="{% url 'all' %}" class="brand"><span class="brand-mark"><svg><use href="#icon-check"/></svg></span>Daylist</a>
     <nav aria-label="Task views">
-      <a href="{% url 'all' %}" {% if not active_list and not today_only and not matrix and not trash and not completed and not calendar_view %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
+      <a href="{% url 'all' %}" {% if not active_list and not today_only and not matrix and not trash and not completed and not calendar_view and not templates_active %}aria-current="page"{% endif %}><svg><use href="#icon-all"/></svg>All <span class="nav-count">{{ all_count }}</span></a>
       <a href="{% url 'today' %}" {% if today_only %}aria-current="page"{% endif %}><svg><use href="#icon-today"/></svg>Today <span class="nav-count">{{ today_count }}</span></a>
       <a href="{% url 'matrix' %}" {% if matrix %}aria-current="page"{% endif %}><svg><use href="#icon-matrix"/></svg>Matrix</a>
       <a href="{% url 'calendar' %}" {% if calendar_view %}aria-current="page"{% endif %}><svg><use href="#icon-today"/></svg>Calendar</a>
+      <a href="{% url 'templates' %}" {% if templates_active %}aria-current="page"{% endif %}><svg><use href="#icon-list"/></svg>Templates</a>
       <div class="lists list-heading">
         <span class="folder-heading">Folders</span>
         <button type="button" class="icon-button" id="add-folder" aria-label="Add folder" aria-haspopup="dialog" aria-controls="folder-dialog"><svg aria-hidden="true"><use href="#icon-plus"/></svg></button>
@@ -26,13 +27,14 @@
       <a href="{% url 'trash' %}" {% if trash %}aria-current="page"{% endif %}><svg><use href="#icon-trash"/></svg>Trash <span class="nav-count">{{ trash_count }}</span></a>
       </nav>
     <footer class="sidebar-footer">
-      <button type="button" class="quiet theme" id="theme" aria-label="Dark theme" aria-pressed="false"><span aria-hidden="true" id="theme-icon">☾</span> Theme</button>
+      {% include "appearance.html" %}
       <a class="icon-button" href="{% url 'change-password' %}" title="Change password" aria-label="Change password"><svg aria-hidden="true"><use href="#icon-profile"/></svg></a>
       <form method="post" action="{% url 'sign-out' %}">{% csrf_token %}<button class="quiet">Sign out</button></form>
     </footer>
     </div>
   </aside>
 
+  {% block workspace_main %}
   <main class="task-pane">
     <div class="pane-header">
       <div>
@@ -86,6 +88,7 @@
               <input type="hidden" name="action" value="color-list">
               <noscript><button class="primary">Save color</button></noscript>
             </form>
+            <a class="quiet" href="{% url 'new-template' %}?folder={{ active_list.pk }}">Save as template</a>
 
           </div>
         </details>
@@ -129,25 +132,38 @@
       </div>
     {% elif active_list %}
       {% if folder_tasks %}
-        {% if can_reorder %}<p class="reorder-hint">Drag the grip to rearrange tasks.</p><form class="folder-order-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="reorder-tasks"></form>{% endif %}
-        <ul class="task-list folder-task-list" aria-label="Tasks in {{ active_list.name }}">{% for task in folder_tasks %}{% include "task.html" %}{% endfor %}</ul>
+        {% if can_reorder %}<p class="reorder-hint">Drag tasks to reorder. Drop into No date to clear a deadline.</p>{% endif %}
+        <div class="folder-order-container">
+          {% if can_reorder %}<form class="folder-order-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="reorder-tasks"></form>{% endif %}
+          {% for label, items in folder_groups %}
+          <details data-group="{{ label }}" class="folder-date-group task-group{% if label == 'Overdue' %} overdue-group{% endif %}" open>
+            <summary><span class="chevron" aria-hidden="true"></span>{{ label }} <span class="group-count">{{ items|length }}</span></summary>
+            <ul class="task-list folder-task-list" aria-label="{{ label }} tasks in {{ active_list.name }}">{% for task in items %}{% include "task.html" %}{% endfor %}</ul>
+            {% if not items and label == 'No date' %}<p class="date-drop-hint">{% if can_reorder %}Drop a task here to remove its date.{% else %}No undated tasks.{% endif %}</p>{% endif %}
+          </details>
+          {% endfor %}
+        </div>
       {% else %}
         <div class="empty"><span class="empty-icon"><svg><use href="#icon-check"/></svg></span><h2>{% if query %}No matching tasks{% else %}A little room to start{% endif %}</h2><p>{% if query %}Try another search or clear it to see your tasks.{% else %}Add a task above when you're ready.{% endif %}</p></div>
       {% endif %}
     {% else %}
-    {% for label, items in groups %}
-      <details data-group="{{ label }}" class="task-group{% if label == 'Overdue' %} overdue-group{% endif %}" open>
-        <summary><span class="chevron" aria-hidden="true"></span>{{ label }} <span class="group-count">{{ items|length }}</span></summary>
-        <ul class="task-list">
-          {% for task in items %}{% include "task.html" %}{% endfor %}
-        </ul>
-      </details>
-    {% empty %}
-      <div class="empty"><span class="empty-icon"><svg><use href="#icon-check"/></svg></span><h2>{% if query %}No matching tasks{% elif completed %}No completed tasks{% elif today_only %}Nothing due today{% else %}A little room to start{% endif %}</h2><p>{% if query %}Try another search or clear it to see your tasks.{% elif completed %}Tasks you finish will appear here.{% elif today_only %}Add something you want to get done today.{% else %}Add a task above when you’re ready.{% endif %}</p></div>
-    {% endfor %}
+    {% if can_reorder and groups %}<p class="reorder-hint">Drag tasks to reorder.{% if can_unschedule %} Drop into No date to clear a deadline.{% endif %}</p>{% endif %}
+    <div class="folder-order-container">
+      {% if can_reorder %}<form class="folder-order-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="reorder-tasks"></form>{% endif %}
+      {% for label, items in groups %}
+        <details data-group="{{ label }}" class="folder-date-group task-group{% if label == 'Overdue' %} overdue-group{% endif %}" open>
+          <summary><span class="chevron" aria-hidden="true"></span>{{ label }} <span class="group-count">{{ items|length }}</span></summary>
+          <ul class="task-list folder-task-list">{% for task in items %}{% include "task.html" %}{% endfor %}</ul>
+          {% if not items and label == 'No date' %}<p class="date-drop-hint">Drop a task here to remove its date.</p>{% endif %}
+        </details>
+      {% empty %}
+        <div class="empty"><span class="empty-icon"><svg><use href="#icon-check"/></svg></span><h2>{% if query %}No matching tasks{% elif completed %}No completed tasks{% elif today_only %}Nothing due today{% else %}A little room to start{% endif %}</h2><p>{% if query %}Try another search or clear it to see your tasks.{% elif completed %}Tasks you finish will appear here.{% elif today_only %}Add something you want to get done today.{% else %}Add a task above when you're ready.{% endif %}</p></div>
+      {% endfor %}
+    </div>
     {% endif %}
     {% endif %}
   </main>
+  {% endblock %}
 
   {% if selected %}
     {% include "detail.html" %}
@@ -160,4 +176,4 @@
 {% include "folder-dialog.html" %}
 {% endblock %}
 
-{% block scripts %}{% include "folder-title-script.html" %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% include 'folder-picker-script.html' %}{% include 'inline-title-script.html' %}{% include 'workspace-script.html' %}{% include 'matrix-script.html' %}{% include 'folder-order-script.html' %}{% endblock %}
+{% block scripts %}{% include "folder-title-script.html" %}{% include "folder-dialog-script.html" %}{% include 'quick-date.html' %}{% include 'calendar.html' %}{% include 'folder-picker-script.html' %}{% include 'inline-title-script.html' %}{% include 'workspace-script.html' %}{% include 'matrix-script.html' %}{% include 'folder-order-script.html' %}{% include 'template-editor-script.html' %}{% endblock %}

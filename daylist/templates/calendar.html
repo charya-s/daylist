@@ -79,7 +79,8 @@
       });
       form.addEventListener("daylist:save-failed", () => {
         for (const button of form.querySelectorAll("button")) button.disabled = false;
-        render();
+        if (month) render();
+        else showMonth(input.value || today);
       });
       input.closest("label").hidden = true;
       calendar.hidden = false;

@@ -39,6 +39,17 @@
     for (const draft of savedDrafts) {
       const target = forms.find(candidate => key(candidate) === draft.key);
       if (!target) continue;
+      if (target.matches(".template-editor")) {
+        const total = target.elements["items-TOTAL_FORMS"];
+        const indexes = draft.fields.map(field => /^items-(\d+)-/.exec(field.name)).filter(Boolean).map(match => Number(match[1]));
+        const count = Math.min(500, Math.max(-1, ...indexes) + 1);
+        while (Number(total.value) < count) {
+          const fragment = document.createElement("template");
+          fragment.innerHTML = target.querySelector("#empty-template-task").innerHTML.replaceAll("__prefix__", total.value);
+          target.querySelector(".template-items").append(fragment.content);
+          total.value = Number(total.value) + 1;
+        }
+      }
       for (const field of draft.fields) {
         const control = editableControls(target).find(candidate => candidate.name === field.name &&
           (!['radio', 'checkbox'].includes(candidate.type) || candidate.value === field.value));
@@ -52,6 +63,10 @@
           target.querySelector(".folder-title, .inline-title-display").hidden = true;
         }
         if (['radio', 'checkbox'].includes(control.type)) control.checked = field.checked;
+        if (control.name.endsWith('-DELETE') && control.checked) {
+          const item = control.closest('.template-task');
+          if (item) { item.hidden = true; for (const input of item.querySelectorAll('input, textarea')) input.required = false; }
+        }
         control.dispatchEvent(new Event("input", { bubbles: true }));
       }
     }
@@ -115,7 +130,7 @@
     if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
     const url = new URL(link.href);
     if (url.hash && url.pathname === location.pathname && url.search === location.search) return;
-    if (url.origin !== location.origin || !/^\/(?:today\/|matrix\/|trash\/|completed\/|calendar\/|lists\/\d+\/)?$/.test(url.pathname)) return;
+    if (url.origin !== location.origin || !/^\/(?:today\/|matrix\/|trash\/|completed\/|calendar\/|templates\/(?:new\/|\d+\/)?|lists\/\d+\/)?$/.test(url.pathname)) return;
     event.preventDefault();
     navigate(url.href);
   });
@@ -206,8 +221,13 @@
         target = focusedForm && [...focusedForm.elements].find(control => focus.id ? control.id === focus.id : control.name === focus.name);
       } else if (action === "add") target = document.querySelector("#quick-title");
       else if (action === "add-step") target = document.querySelector('.add-step input:not([type=hidden])');
+      else if (action === "reschedule" && form.dataset.dateDrop === "no-date") {
+        const group = document.querySelector('.folder-date-group[data-group="No date"]');
+        if (group) group.open = true;
+        target = group?.querySelector('.task[data-task-id="' + data.get("task_id") + '"]');
+      }
       else if (action === "reorder-tasks") {
-        target = document.querySelector('.folder-task-list .task[data-task-id="' + form.dataset.movedTask + '"] .task-order-handle');
+        target = document.querySelector('.folder-task-list .task[data-task-id="' + form.dataset.movedTask + '"]');
       }
       else if (action === "set-matrix") {
         const handle = document.querySelector('.matrix-grid .task[data-task-id="' + data.get("task_id") + '"] .matrix-move summary');

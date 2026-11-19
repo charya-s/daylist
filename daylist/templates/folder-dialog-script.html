@@ -4,6 +4,23 @@
     const trigger = document.getElementById("add-folder");
     const dialog = document.getElementById("folder-dialog");
     trigger.addEventListener("click", () => dialog.showModal());
+    const template = dialog.querySelector('select[name="new-list-template"]');
+    function useTemplate() {
+      const option = template.selectedOptions[0];
+      if (!option?.value) return;
+      const name = dialog.querySelector('input[name="new-list-name"]');
+      if (!name.value.trim()) name.value = option.dataset.name;
+      const radio = [...dialog.querySelectorAll('input[type="radio"]')].find(input => input.value === option.dataset.color);
+      if (radio) radio.checked = true;
+    }
+    template.addEventListener("change", useTemplate);
+    for (const button of document.querySelectorAll("[data-use-template]")) {
+      button.addEventListener("click", () => {
+        template.value = button.dataset.useTemplate;
+        useTemplate();
+        dialog.showModal();
+      });
+    }
     for (const button of dialog.querySelectorAll("[data-close-folder]")) {
       button.addEventListener("click", () => dialog.close());
     }

@@ -10,6 +10,16 @@
     <input type="text" name="{{ add_list_form.name.html_name }}" id="{{ add_list_form.name.id_for_label }}"
            maxlength="80" required autofocus placeholder="e.g. Personal" value="{{ add_list_form.name.value|default_if_none:'' }}">
     {{ add_list_form.name.errors }}
+    <label class="sr-only" for="{{ add_list_form.template.id_for_label }}">Start from</label>
+    <div class="folder-template-select">
+    <select id="{{ add_list_form.template.id_for_label }}" name="{{ add_list_form.template.html_name }}">
+      <option value="">Blank folder</option>
+      {% for preset in folder_templates %}<option value="{{ preset.pk }}" data-color="{{ preset.color }}" data-name="{{ preset.name }}" {% if add_list_form.template.value|stringformat:"s" == preset.pk|stringformat:"s" %}selected{% endif %}>{{ preset.name }}</option>{% endfor %}
+    </select>
+    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+    {{ add_list_form.template.errors }}
+    <p class="folder-template-help">Template tasks start unchecked, with no dates or repeat schedules.</p>
     {% include "folder-colors.html" with color_field=add_list_form.color %}
     <div class="folder-dialog-footer">
       <button type="button" class="quiet" data-close-folder>Cancel</button>

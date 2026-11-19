@@ -1,0 +1,23 @@
+<script>
+(() => {
+  document.addEventListener("click", event => {
+    const add = event.target.closest("[data-add-template-task]");
+    const remove = event.target.closest("[data-remove-template-task]");
+    if (add) {
+      const form = add.closest("form"), total = form.elements["items-TOTAL_FORMS"];
+      if (Number(total.value) >= 500) return;
+      const fragment = document.createElement("template");
+      fragment.innerHTML = form.querySelector("#empty-template-task").innerHTML.replaceAll("__prefix__", total.value);
+      const item = fragment.content.firstElementChild;
+      form.querySelector(".template-items").append(item); total.value = Number(total.value) + 1;
+      item.querySelector('input[name$="-title"]').focus();
+    }
+    if (remove) {
+      const item = remove.closest(".template-task");
+      item.querySelector('input[name$="-DELETE"]').checked = true;
+      item.hidden = true;
+      for (const control of item.querySelectorAll("input, textarea")) control.required = false;
+    }
+  });
+})();
+</script>

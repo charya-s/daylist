@@ -17,7 +17,8 @@ from django.utils.timezone import localdate, now
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .models import Subtask, Task, TaskList
+from .models import Subtask, Task, TaskList, TaskListTemplate
+from .folder_templates import TemplateForm, TemplateTasks, folder_snapshot, editor_initial, instantiate_template
 from .planner import month_dates, calendar_context
 from .recurrence import complete_task
 from .trash import trash_folder, restore_folder as restore_trashed_folder
@@ -120,11 +121,17 @@ class ListForm(forms.ModelForm):
 
 
 class NewFolderForm(ListForm):
+    template = forms.ModelChoiceField(queryset=TaskListTemplate.objects.none(), required=False, empty_label="Blank folder")
     color = forms.ChoiceField(choices=TaskList.Color.choices, required=False,
                               initial=TaskList.Color.DEFAULT, widget=forms.RadioSelect)
 
     class Meta(ListForm.Meta):
         fields = ["name", "color"]
+
+    def __init__(self, *args, templates=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if templates is not None:
+            self.fields["template"].queryset = templates
 
     def clean_color(self):
         return self.cleaned_data["color"] or TaskList.Color.DEFAULT
@@ -217,7 +224,7 @@ def valid_id(value):
     return int(value) if re.fullmatch(r"[0-9]{1,18}", value or "") else 0
 
 
-def group_tasks(tasks, today):
+def group_tasks(tasks, today, include_no_date=False):
     groups = {name: [] for name in ("Overdue", "Today", "Upcoming", "No date", "Completed")}
     for task in tasks:
         if task.done:
@@ -231,7 +238,7 @@ def group_tasks(tasks, today):
         else:
             group = "Upcoming"
         groups[group].append(task)
-    return [(name, items) for name, items in groups.items() if items]
+    return [(name, items) for name, items in groups.items() if items or (include_no_date and name == "No date")]
 
 
 @never_cache
@@ -245,6 +252,7 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
     }
     all_owned = Task.objects.filter(owner=request.user)
     owned = all_owned.filter(deleted_at__isnull=True)
+    folder_templates = TaskListTemplate.objects.filter(owner=request.user)
     all_lists = TaskList.objects.filter(owner=request.user)
     lists = all_lists.filter(deleted_at__isnull=True)
     trashed_steps = Subtask.objects.filter(task__owner=request.user, task__deleted_at__isnull=True, deleted_at__isnull=False)
@@ -292,7 +300,7 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
         raise Http404
     selected = get_object_or_404(visible, pk=selected_id) if selected_id else None
     quick_form = QuickTaskForm(initial={"due": today} if today_only else None)
-    add_list_form = NewFolderForm(prefix="new-list")
+    add_list_form = NewFolderForm(prefix="new-list", templates=folder_templates)
     rename_form = ListForm(instance=active_list, prefix="rename") if active_list else None
     color_form = FolderColorForm(instance=active_list, prefix="folder-color") if active_list else None
     title_form = folder_form = None
@@ -333,17 +341,18 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
                 return HttpResponseBadRequest("Unknown Trash action.")
             return redirect(view_url)
         elif action == "reorder-tasks":
-            if not active_list or query:
-                return HttpResponseBadRequest("Open a folder without a search to rearrange tasks.")
+            if query or matrix or calendar_view or completed:
+                return HttpResponseBadRequest("Open All, Today, or a folder without a search to rearrange tasks.")
             ids = [valid_id(value) for value in request.POST.getlist("order")]
             with transaction.atomic():
-                reorderable = list(owned.filter(task_list=active_list, done=False).select_for_update())
+                reorderable = list(visible.select_for_update())
+                position_field = "position" if active_list else "today_position" if today_only else "all_position"
                 if len(ids) != len(reorderable) or set(ids) != {task.pk for task in reorderable}:
                     return HttpResponseBadRequest("The folder changed. Refresh before rearranging tasks.")
                 positions = {pk: index for index, pk in enumerate(ids, start=1)}
                 for task in reorderable:
-                    task.position = positions[task.pk]
-                Task.objects.bulk_update(reorderable, ["position"])
+                    setattr(task, position_field, positions[task.pk])
+                Task.objects.bulk_update(reorderable, [position_field])
             return back(selected_id)
         elif action == "add":
             quick_form = QuickTaskForm(request.POST)
@@ -367,13 +376,15 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
             if action == "rename-list":
                 form = ListForm(request.POST, instance=active_list, prefix="rename")
             else:
-                form = NewFolderForm(request.POST, prefix="new-list")
+                form = NewFolderForm(request.POST, prefix="new-list", templates=folder_templates)
             if form.is_valid():
                 item = form.save(commit=False)
                 item.owner = request.user
                 try:
                     with transaction.atomic():
                         item.save()
+                        if action == "add-list" and form.cleaned_data.get("template"):
+                            instantiate_template(item, form.cleaned_data["template"])
                 except IntegrityError:
                     form.add_error("name", "You already have a folder with this name. Check Trash if it is not listed.")
                 else:
@@ -520,7 +531,8 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
                   SubtaskTitleForm(instance=step, prefix=f"step-{step.pk}"))
                  for step in selected.subtasks.filter(deleted_at__isnull=True)]
 
-    ordering = ("position", "-pk") if active_list else ("done", F("due").asc(nulls_last=True), "-pk")
+    can_reorder = not (query or matrix or calendar_view or completed or trash)
+    ordering = ("position", "-pk") if active_list else ("today_position", "-pk") if today_only else ("all_position", "-pk") if can_reorder else ("done", F("due").asc(nulls_last=True), "-pk")
     ordered = list(visible.select_related("task_list").annotate(
         step_count=Count("subtasks", filter=Q(subtasks__deleted_at__isnull=True)),
         done_steps=Count("subtasks", filter=Q(subtasks__done=True, subtasks__deleted_at__isnull=True)),
@@ -547,7 +559,9 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
     planner = calendar_context(month, ordered, view_path, filters, today) if calendar_view else {}
     return render(request, "tasks.html", {
         **planner, "calendar_view": calendar_view, "folder_tasks": ordered if active_list else [],
-        "can_reorder": bool(active_list and not query),
+        "can_reorder": can_reorder, "can_unschedule": can_reorder and not today_only,
+        "folder_templates": folder_templates,
+        "folder_groups": group_tasks(ordered, today, include_no_date=True) if active_list else [],
         "view_url": view_url, "view_path": view_path, "task_separator": "&" if filters else "?",
         "query": query, "clear_url": clear_url, "matrix": matrix, "trash": trash, "completed": completed,
         "completed_count": owned.filter(done=True).count(),
@@ -556,7 +570,7 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
         "quadrants": quadrants, "matrix_choices": Task.MatrixQuadrant.choices, "matrix_form": matrix_form, "result_count": sum(not task.done for task in ordered) if matrix else len(ordered),
         "active_list": active_list, "today_only": today_only,
         "view_title": "Trash" if trash else "Completed" if completed else "Calendar" if calendar_view else "Matrix" if matrix else active_list.name if active_list else "Today" if today_only else "All tasks",
-        "today": today, "quick_dates": quick_dates, "next_week": quick_dates["next-week"], "selected": selected, "groups": group_tasks(ordered, today),
+        "today": today, "quick_dates": quick_dates, "next_week": quick_dates["next-week"], "selected": selected, "groups": group_tasks(ordered, today, include_no_date=bool(can_reorder and not today_only and ordered)),
         "lists": lists.annotate(open_count=Count("tasks", filter=Q(tasks__done=False, tasks__owner=request.user, tasks__deleted_at__isnull=True))),
         "all_count": owned.filter(done=False).count(),
         "today_count": owned.filter(due=today, done=False).count(),
@@ -568,8 +582,71 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
     }, status=400 if request.method == "POST" else 200)
 
 
+def template_workspace(request):
+    owned = Task.objects.filter(owner=request.user, deleted_at__isnull=True)
+    presets = TaskListTemplate.objects.filter(owner=request.user)
+    lists = TaskList.objects.filter(owner=request.user, deleted_at__isnull=True)
+    return {
+        "templates_active": True, "view_title": "Templates", "view_url": reverse("templates"),
+        "folder_templates": presets, "lists": lists.annotate(open_count=Count("tasks", filter=Q(tasks__done=False, tasks__deleted_at__isnull=True, tasks__owner=request.user))),
+        "all_count": owned.filter(done=False).count(), "today_count": owned.filter(done=False, due=localdate()).count(),
+        "completed_count": owned.filter(done=True).count(),
+        "trash_count": Task.objects.filter(owner=request.user, deleted_at__isnull=False).count() +
+                       TaskList.objects.filter(owner=request.user, deleted_at__isnull=False).count() +
+                       Subtask.objects.filter(task__owner=request.user, task__deleted_at__isnull=True, deleted_at__isnull=False).count(),
+        "add_list_form": NewFolderForm(prefix="new-list", templates=presets),
+    }
+
+
+@never_cache
+@login_required
+@require_http_methods(["GET", "POST"])
+def template_list(request):
+    if request.method == "POST":
+        if request.POST.get("action") != "delete-template":
+            return HttpResponseBadRequest("Unknown template action.")
+        item = get_object_or_404(TaskListTemplate, owner=request.user, pk=valid_id(request.POST.get("template_id")))
+        item.delete()
+        return redirect("templates")
+    return render(request, "template-workspace.html", template_workspace(request))
+
+
+@never_cache
+@login_required
+@require_http_methods(["GET", "POST"])
+def template_editor(request, template_id=None):
+    item = get_object_or_404(TaskListTemplate, owner=request.user, pk=template_id) if template_id else TaskListTemplate(owner=request.user)
+    initial_items = item.tasks if template_id else []
+    initial = {}
+    if request.method == "GET" and request.GET.get("folder"):
+        folder = get_object_or_404(TaskList, owner=request.user, deleted_at__isnull=True, pk=valid_id(request.GET.get("folder")))
+        initial = {"name": folder.name, "color": folder.color}
+        initial_items = folder_snapshot(folder)
+    form = TemplateForm(request.POST if request.method == "POST" else None, instance=item, initial=initial)
+    tasks = TemplateTasks(request.POST if request.method == "POST" else None, initial=editor_initial(initial_items), prefix="items")
+    if request.method == "POST":
+        form_valid = form.is_valid()
+        tasks_valid = tasks.is_valid()
+        if form_valid and tasks_valid:
+            item = form.save(commit=False)
+            item.owner = request.user
+            item.tasks = [{key: row[key] for key in ("title", "notes", "flagged", "subtasks")} for row in tasks.cleaned_data if row and not row.get("DELETE")]
+            try:
+                with transaction.atomic():
+                    item.save()
+            except IntegrityError:
+                form.add_error("name", "You already have a template with this name.")
+            else:
+                return redirect("templates")
+    return render(request, "template-workspace.html", {**template_workspace(request), "editing_template": True,
+                  "preset": item, "template_form": form, "template_tasks": tasks}, status=400 if request.method == "POST" else 200)
+
+
 urlpatterns = [
     path("", tasks, name="all"),
+    path("templates/", template_list, name="templates"),
+    path("templates/new/", template_editor, name="new-template"),
+    path("templates/<int:template_id>/", template_editor, name="edit-template"),
     path("today/", tasks, {"today_only": True}, name="today"),
     path("matrix/", tasks, {"matrix": True}, name="matrix"),
     path("calendar/", tasks, {"calendar_view": True}, name="calendar"),

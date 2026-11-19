@@ -88,7 +88,7 @@ class CalendarAndOrderTests(TestCase):
         self.assertEqual(response.status_code, 302)
         response = self.client.get(reverse("task-list", args=[self.folder.pk]))
         self.assertEqual([task.pk for task in response.context["folder_tasks"]], [self.undated.pk, self.later.pk, self.first.pk])
-        self.assertNotContains(response, 'class="task-group')
+        self.assertContains(response, 'class="folder-date-group task-group')
         self.first.refresh_from_db(); self.later.refresh_from_db()
         self.assertEqual(self.first.due, date(2026, 11, 3))
         self.assertTrue(self.later.flagged)
@@ -124,3 +124,35 @@ class CalendarAndOrderTests(TestCase):
         self.later.refresh_from_db()
         self.assertEqual(self.later.position, 0)
         self.assertEqual(self.later.task_list_id, self.second.pk)
+
+    def test_empty_no_date_group_is_available_as_drop_target(self, _):
+        Task.objects.filter(pk=self.undated.pk).update(due=date(2026, 11, 14))
+        response = self.client.get(reverse("task-list", args=[self.folder.pk]))
+        groups = dict(response.context["folder_groups"])
+        self.assertIn("No date", groups)
+        self.assertEqual(groups["No date"], [])
+        self.assertContains(response, "Drop a task here to remove its date.")
+
+    def test_clearing_dropped_task_date_preserves_its_other_details(self, _):
+        self.later.notes = "Keep this note"
+        self.later.repeat = "weekly"
+        self.later.repeat_anchor = self.later.due
+        self.later.save()
+        response = self.client.post(reverse("task-list", args=[self.folder.pk]) + f"?task={self.later.pk}",
+                                    {"action": "reschedule", "task_id": self.later.pk, "schedule": "no-date"}, follow=True)
+        self.later.refresh_from_db()
+        self.assertIsNone(self.later.due)
+        self.assertEqual(self.later.repeat, "")
+        self.assertIsNone(self.later.repeat_anchor)
+        self.assertEqual(self.later.notes, "Keep this note")
+        self.assertEqual(self.later.position, 2)
+        self.assertTrue(self.later.flagged)
+        self.assertEqual(self.later.task_list_id, self.folder.pk)
+        self.assertIn(self.later.pk, [task.pk for task in dict(response.context["folder_groups"])["No date"]])
+        self.assertEqual(response.context["selected"].pk, self.later.pk)
+
+    def test_manual_order_is_preserved_inside_date_groups(self, _):
+        Task.objects.filter(pk=self.later.pk).update(due=self.first.due)
+        self.reorder([self.undated.pk, self.later.pk, self.first.pk])
+        response = self.client.get(reverse("task-list", args=[self.folder.pk]))
+        self.assertEqual([task.pk for task in dict(response.context["folder_groups"])["Overdue"]], [self.later.pk, self.first.pk])

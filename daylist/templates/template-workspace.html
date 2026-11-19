@@ -1,0 +1,32 @@
+{% extends "tasks.html" %}
+{% block workspace_main %}
+<main class="task-pane template-page">
+  {% if editing_template %}
+    <div class="template-page-header"><h1>{% if preset.pk %}Edit template{% else %}New template{% endif %}</h1><a class="quiet" href="{% url 'templates' %}">Back to templates</a></div>
+    <p class="template-page-hint">Reusable tasks, notes, priorities, and subtasks. Folders made from this template get their own unchecked tasks, without dates or repeat schedules.</p>
+    <form class="template-editor" method="post">
+      {% csrf_token %}{{ template_form.non_field_errors }}
+      <label for="{{ template_form.name.id_for_label }}">Template name</label>{{ template_form.name }}{{ template_form.name.errors }}
+      {% include "folder-colors.html" with color_field=template_form.color %}
+      {{ template_tasks.management_form }}{{ template_tasks.non_form_errors }}
+      <div class="template-items">{% for item in template_tasks %}{% include "template-task-form.html" %}{% endfor %}</div>
+      <template id="empty-template-task">{% include "template-task-form.html" with item=template_tasks.empty_form %}</template>
+      <button type="button" class="quiet" data-add-template-task><svg><use href="#icon-plus"/></svg>Add task</button>
+      <div class="template-editor-actions"><button class="primary" name="action" value="save-template">Save template</button><a class="quiet" href="{% url 'templates' %}">Cancel</a></div>
+    </form>
+  {% else %}
+    <div class="template-page-header"><h1>Templates</h1><a class="primary" href="{% url 'new-template' %}">New template</a></div>
+    <p class="template-page-hint">Save a preset task list, then reuse it when creating a folder. Templates are private to your account. You can also save a folder as a template from its menu.</p>
+    <div class="template-cards">
+      {% for preset in folder_templates %}
+        <article class="template-card" data-template-id="{{ preset.pk }}"><h2>{{ preset.name }}</h2><span class="group-count">{{ preset.tasks|length }} task{{ preset.tasks|length|pluralize }}</span>
+          <ul>{% for task in preset.tasks|slice:":3" %}<li>{{ task.title }}</li>{% endfor %}{% if preset.tasks|length > 3 %}<li>And more…</li>{% endif %}</ul>
+          <div class="template-card-actions"><button type="button" class="primary" data-use-template="{{ preset.pk }}">New folder</button><a class="quiet" href="{% url 'edit-template' preset.pk %}">Edit</a>
+            <form method="post" action="{% url 'templates' %}" data-confirm="Delete this template? Folders already created from it are kept.">{% csrf_token %}<input type="hidden" name="template_id" value="{{ preset.pk }}"><button class="icon-button trash-button" name="action" value="delete-template" aria-label="Delete template {{ preset.name }}" title="Delete template"><svg><use href="#icon-trash"/></svg></button></form>
+          </div>
+        </article>
+      {% empty %}<div class="empty"><span class="empty-icon"><svg><use href="#icon-list"/></svg></span><h2>Your reusable checklists</h2><p>Create a template, or save an existing folder as one.</p></div>{% endfor %}
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

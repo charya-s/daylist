@@ -5,9 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Daylist{% endblock %}</title>
   <script>
+    document.documentElement.dataset.accent = "default";
     try {
       const saved = localStorage.getItem("daylist-theme");
       if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+      const accent = localStorage.getItem("daylist-accent");
+      if (["default", "clay", "sage", "ocean", "lavender", "rose", "amber"].includes(accent)) document.documentElement.dataset.accent = accent;
     } catch {}
   </script>
   <style>{% include "theme.css" %}</style>
@@ -17,9 +20,7 @@
     <div class="top-inner">
       <a href="/" class="brand"><span class="brand-mark" aria-hidden="true">✓</span>Daylist</a>
       <div class="header-actions">
-        <button type="button" class="quiet theme" id="theme" aria-label="Dark theme" aria-pressed="false">
-          <span aria-hidden="true" id="theme-icon">☾</span><span>Theme</span>
-        </button>
+        {% include "appearance.html" %}
         {% if request.user.is_authenticated %}
           <form method="post" action="{% url 'sign-out' %}">{% csrf_token %}<button class="quiet">Sign out</button></form>
         {% endif %}
@@ -32,15 +33,31 @@
     const systemTheme = matchMedia("(prefers-color-scheme: dark)");
     function isDark() { return root.dataset.theme ? root.dataset.theme === "dark" : systemTheme.matches; }
     function updateToggle() {
-      const themeButton = document.getElementById("theme");
-      themeButton.setAttribute("aria-pressed", String(isDark()));
-      document.getElementById("theme-icon").textContent = isDark() ? "☀" : "☾";
+      const icon = document.getElementById("theme-icon");
+      if (icon) icon.textContent = isDark() ? "☀" : "☾";
+      for (const button of document.querySelectorAll("[data-theme-mode]")) {
+        button.setAttribute("aria-pressed", String(button.dataset.themeMode === (root.dataset.theme || "system")));
+      }
+      for (const button of document.querySelectorAll(".accent-option")) {
+        button.setAttribute("aria-pressed", String(button.dataset.accent === (root.dataset.accent || "default")));
+      }
     }
     document.addEventListener("click", event => {
-      if (!event.target.closest("#theme")) return;
-      root.dataset.theme = isDark() ? "light" : "dark";
-      try { localStorage.setItem("daylist-theme", root.dataset.theme); } catch {}
-      updateToggle();
+      const mode = event.target.closest("[data-theme-mode]");
+      const accent = event.target.closest(".accent-option");
+      if (mode) {
+        if (mode.dataset.themeMode === "system") delete root.dataset.theme;
+        else root.dataset.theme = mode.dataset.themeMode;
+        try {
+          if (root.dataset.theme) localStorage.setItem("daylist-theme", root.dataset.theme);
+          else localStorage.removeItem("daylist-theme");
+        } catch {}
+      }
+      if (accent) {
+        root.dataset.accent = accent.dataset.accent;
+        try { localStorage.setItem("daylist-accent", root.dataset.accent); } catch {}
+      }
+      if (mode || accent) updateToggle();
     });
     systemTheme.addEventListener("change", updateToggle);
     updateToggle();
