@@ -16,9 +16,9 @@
   }
   function key(form) {
     const context = form.closest(".detail-pane") ? "detail" : form.closest("dialog") ? "dialog" : "main";
-    const actions = [...form.querySelectorAll('[name="action"]')].map(control =>
-      control.value.replace(/^reopen/, "complete").replace(/^unflag$/, "flag")).join(",");
-    return [context, form.className.replace(/\bis-editing\b/g, "").trim(), form.elements.task_id?.value || "", form.elements.step_id?.value || "", actions].join("|");
+    const actions = [...new Set([...form.querySelectorAll('[name="action"]')].map(control =>
+      control.value.replace(/^reopen/, "complete").replace(/^unflag$/, "flag")))].join(",");
+    return [context, form.className.replace(/\bis-editing\b/g, "").trim(), form.elements.task_id?.value || "", form.elements.step_id?.value || "", form.elements.quadrant?.value || "", actions].join("|");
   }
   function editableControls(form) {
     return [...form.querySelectorAll('input:not([type=hidden]):not([type=submit]), textarea, select')];
@@ -43,12 +43,7 @@
         const total = target.elements["items-TOTAL_FORMS"];
         const indexes = draft.fields.map(field => /^items-(\d+)-/.exec(field.name)).filter(Boolean).map(match => Number(match[1]));
         const count = Math.min(500, Math.max(-1, ...indexes) + 1);
-        while (Number(total.value) < count) {
-          const fragment = document.createElement("template");
-          fragment.innerHTML = target.querySelector("#empty-template-task").innerHTML.replaceAll("__prefix__", total.value);
-          target.querySelector(".template-items").append(fragment.content);
-          total.value = Number(total.value) + 1;
-        }
+        window.daylistTemplateEditor?.ensureRows(target, count);
       }
       for (const field of draft.fields) {
         const control = editableControls(target).find(candidate => candidate.name === field.name &&
@@ -57,10 +52,10 @@
         control.value = field.value;
         const editor = control.closest("details[data-dismiss-outside]");
         if (editor) editor.open = true;
-        if (control.matches(".folder-title-input, .inline-title-input")) {
+        if (control.matches(".folder-title-input, .inline-title-input, .matrix-title-input")) {
           target.classList.add("is-editing");
           control.hidden = false;
-          target.querySelector(".folder-title, .inline-title-display").hidden = true;
+          target.querySelector(".folder-title, .inline-title-display, .matrix-title").hidden = true;
         }
         if (['radio', 'checkbox'].includes(control.type)) control.checked = field.checked;
         if (control.name.endsWith('-DELETE') && control.checked) {
@@ -69,6 +64,7 @@
         }
         control.dispatchEvent(new Event("input", { bubbles: true }));
       }
+      if (target.matches(".template-list-editor")) window.daylistTemplateEditor?.refresh(target);
     }
     return forms;
   }
@@ -243,6 +239,11 @@
         const button = replacement?.querySelector(".inline-title-display");
         button?.focus({ preventScroll: true });
         button?.blur();
+        window.getSelection()?.removeAllRanges();
+      }
+      else if (action === "rename-quadrant") {
+        const heading = document.querySelector('.matrix-title-editor[data-quadrant="' + data.get("quadrant") + '"] h2');
+        heading.tabIndex = -1; heading.focus({ preventScroll: true }); heading.blur();
         window.getSelection()?.removeAllRanges();
       }
       else if (action === "rename-list") {

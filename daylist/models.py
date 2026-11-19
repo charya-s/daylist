@@ -31,10 +31,10 @@ class TaskList(models.Model):
 class Task(models.Model):
     class MatrixQuadrant(models.TextChoices):
         AUTO = "", "Automatic (flag and due date)"
-        DO = "do", "Do first"
-        SCHEDULE = "schedule", "Schedule"
-        BATCH = "batch", "Delegate or batch"
-        RECONSIDER = "reconsider", "Reconsider"
+        DO = "do", "Important & Urgent"
+        SCHEDULE = "schedule", "Important & Not Urgent"
+        BATCH = "batch", "Not Important & Urgent"
+        RECONSIDER = "reconsider", "Not Important & Not Urgent"
 
     class Repeat(models.TextChoices):
         NEVER = "", "Does not repeat"
@@ -84,6 +84,11 @@ class Subtask(models.Model):
 
 
 class TaskListTemplate(models.Model):
+    class Kind(models.TextChoices):
+        FOLDER = "folder", "Folder template"
+        TASK = "task", "Task template"
+
+    kind = models.CharField(max_length=6, choices=Kind.choices, default=Kind.FOLDER)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=80)
     color = models.CharField(max_length=7, choices=TaskList.Color.choices, default=TaskList.Color.DEFAULT)
@@ -97,3 +102,12 @@ class TaskListTemplate(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class MatrixHeading(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    quadrant = models.CharField(max_length=10, choices=Task.MatrixQuadrant.choices)
+    name = models.CharField(max_length=80)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["owner", "quadrant"], name="unique_matrix_heading")]

@@ -1,0 +1,8 @@
+<form class="matrix-title-editor{% if quadrant.title_form.errors %} is-editing{% endif %}" data-quadrant="{{ quadrant.key }}" method="post">
+  {% csrf_token %}<input type="hidden" name="action" value="rename-quadrant"><input type="hidden" name="quadrant" value="{{ quadrant.key }}">
+  <h2 id="quadrant-{{ quadrant.key }}"><button class="matrix-title" type="button" hidden title="Rename quadrant" aria-label="Rename {{ quadrant.title }}">{{ quadrant.title }}</button></h2>
+  <label class="sr-only" for="{{ quadrant.title_form.name.id_for_label }}">Quadrant name</label>
+  <input class="matrix-title-input" id="{{ quadrant.title_form.name.id_for_label }}" name="{{ quadrant.title_form.name.html_name }}" value="{{ quadrant.title_form.name.value|default_if_none:'' }}" data-original="{{ quadrant.title }}" maxlength="80" required {% if quadrant.title_form.errors %}aria-invalid="true"{% endif %}>
+  <div class="title-errors">{{ quadrant.title_form.name.errors }}</div>
+  <noscript><button class="quiet">Save quadrant name</button></noscript>
+</form>

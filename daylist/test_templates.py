@@ -102,6 +102,68 @@ class FolderTemplateTests(TestCase):
         self.assertFalse(TaskListTemplate.objects.filter(pk=preset.pk).exists())
         self.assertEqual(TaskList.objects.get(owner=self.owner, name="New project").tasks.count(), 2)
 
+    def create_task_template(self):
+        data = self.payload(name="Weekly review", **{"items-TOTAL_FORMS": "1", "items-0-title": "Review progress"})
+        response = self.client.post(reverse("new-template") + "?kind=task", data)
+        self.assertEqual(response.status_code, 302)
+        return TaskListTemplate.objects.get(owner=self.owner, kind=TaskListTemplate.Kind.TASK)
+
+    def test_task_template_copies_one_task_to_the_current_view(self):
+        preset = self.create_task_template()
+        response = self.client.post(reverse("task-list", args=[self.folder.pk]), {"action": "add-task-template", "task_template": preset.pk}, follow=True)
+        task = response.context["selected"]
+        self.assertEqual(task.title, "Review progress")
+        self.assertEqual(task.task_list_id, self.folder.pk)
+        self.assertIsNone(task.due)
+        self.assertFalse(task.done)
+        self.assertTrue(task.flagged)
+        self.assertEqual(task.notes, "Instructions")
+        self.assertEqual(list(task.subtasks.values_list("title", "done")), [("Check details", False), ("Send update", False)])
+        response = self.client.post(reverse("today"), {"action": "add-task-template", "task_template": preset.pk}, follow=True)
+        self.assertEqual(response.context["selected"].due, localdate())
+        self.assertIsNone(response.context["selected"].task_list_id)
+
+    def test_task_template_requires_one_task_and_can_replace_it(self):
+        response = self.client.post(reverse("new-template") + "?kind=task", self.payload())
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(TaskListTemplate.objects.filter(owner=self.owner).exists())
+        preset = self.create_task_template()
+        response = self.client.post(reverse("edit-template", args=[preset.pk]), self.payload(name="Weekly review", **{"items-INITIAL_FORMS": "1", "items-0-DELETE": "on", "items-1-title": "Replacement"}))
+        self.assertEqual(response.status_code, 302)
+        preset.refresh_from_db()
+        self.assertEqual(preset.kind, "task")
+        self.assertEqual([task["title"] for task in preset.tasks], ["Replacement"])
+
+    def test_task_templates_and_folder_templates_cannot_be_mixed_or_accessed_by_others(self):
+        preset = self.create_task_template()
+        response = self.create_folder(preset)
+        self.assertEqual(response.status_code, 400)
+        response = self.client.get(reverse("templates"))
+        self.assertEqual(list(response.context["task_templates"]), [preset])
+        self.assertEqual(list(response.context["folder_templates"]), [])
+        self.assertEqual(self.client.post(reverse("all"), {"action": "add-task-template", "task_template": self.private.pk}).status_code, 404)
+        self.private.kind = "task"; self.private.save()
+        self.assertEqual(self.client.post(reverse("all"), {"action": "add-task-template", "task_template": self.private.pk}).status_code, 404)
+        self.assertEqual(self.client.get(reverse("new-template"), {"kind": "invalid"}).status_code, 400)
+
+    def test_save_existing_task_as_task_template(self):
+        response = self.client.get(reverse("new-template"), {"task": self.task.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["preset"].kind, "task")
+        self.assertEqual(response.context["template_tasks"].initial[0]["subtasks"], "Check details")
+        self.assertNotIn("due", response.context["template_tasks"].initial[0])
+        foreign = Task.objects.create(owner=self.other, title="Private task")
+        self.assertEqual(self.client.get(reverse("new-template"), {"task": foreign.pk}).status_code, 404)
+
+    def test_matrix_labels_and_bottom_templates_link(self):
+        response = self.client.get(reverse("matrix"))
+        self.assertEqual([quadrant["title"] for quadrant in response.context["quadrants"]], ["Important & Urgent", "Important & Not Urgent", "Not Important & Urgent", "Not Important & Not Urgent"])
+        self.assertNotContains(response, ">Do first<")
+        html = response.content.decode()
+        bottom = html[html.index('class="sidebar-bottom"'):]
+        self.assertLess(bottom.index('href="/templates/"'), bottom.index('href="/completed/"'))
+
+
 
 class ViewOrderTests(TestCase):
     def setUp(self):

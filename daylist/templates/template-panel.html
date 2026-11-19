@@ -1,0 +1,21 @@
+<section class="template-task-panel template-task" data-template-prefix="{{ item.prefix }}">
+  <div class="detail-top">
+    <button type="button" class="quiet back-detail" data-preset-back><svg><use href="#icon-arrow"/></svg>Back to tasks</button>
+    <div class="detail-actions">
+      <button type="button" class="icon-button priority-toggle" data-preset-priority aria-label="Priority flag" aria-pressed="{{ item.flagged.value|yesno:'true,false' }}"><svg><use href="#icon-flag"/></svg></button>
+      <button type="button" class="icon-button trash-button" data-remove-template-task="{{ item.prefix }}" aria-label="Remove preset task" title="Remove task"><svg><use href="#icon-trash"/></svg></button>
+    </div>
+    <span class="preset-panel-save-slot"></span>
+  </div>
+  <div class="detail-content">
+    <span hidden>{{ item.DELETE }}{{ item.flagged }}</span>
+    {{ item.non_field_errors }}
+    <label class="sr-only" for="{{ item.title.id_for_label }}">Task name</label>{{ item.title }}{{ item.title.errors }}
+    <section class="steps preset-steps" aria-label="Subtasks">
+      <ul class="task-list preset-subtasks"></ul>
+      <div class="add-step preset-add-step"><button type="button" class="composer-submit" data-add-preset-subtask aria-label="Add subtask"><svg><use href="#icon-plus"/></svg></button><label class="sr-only" for="{{ item.prefix }}-new-step">New subtask</label><input type="text" id="{{ item.prefix }}-new-step" name="{{ item.prefix }}-new-step" placeholder="Add a subtask…" maxlength="200" data-preset-new-step></div>
+      <div class="preset-subtask-source"><label for="{{ item.subtasks.id_for_label }}">Subtasks (one per line)</label>{{ item.subtasks }}</div>{{ item.subtasks.errors }}
+    </section>
+    <div class="template-notes"><label class="sr-only" for="{{ item.notes.id_for_label }}">Notes</label>{{ item.notes }}{{ item.notes.errors }}</div>
+  </div>
+</section>

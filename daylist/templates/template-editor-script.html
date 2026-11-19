@@ -1,23 +1,177 @@
 <script>
 (() => {
+  const states = new WeakMap();
+  const smallScreen = matchMedia("(max-width: 820px)");
+  const mobile = () => smallScreen.matches;
+  const panels = form => [...form.querySelectorAll(".template-task-panel")];
+  const field = (form, prefix, name) => form.elements[prefix + "-" + name];
+  const row = (form, prefix) => [...form.querySelectorAll(".template-task-row")].find(item => item.dataset.templatePrefix === prefix);
+  const panel = (form, prefix) => panels(form).find(item => item.dataset.templatePrefix === prefix);
+  const lines = source => source.value.split(/\r?\n/).map(title => title.trim()).filter(Boolean);
+  function active(form) { return panels(form).filter(item => !field(form, item.dataset.templatePrefix, "DELETE").checked); }
+  function placeSave(form) {
+    const button = form.querySelector("[data-template-save]");
+    const selected = states.get(form)?.selected;
+    const destination = mobile() && selected && form.closest(".workspace").classList.contains("has-selection") ?
+      panel(form, selected)?.querySelector(".preset-panel-save-slot") : form.querySelector(".preset-save-home");
+    destination?.append(button);
+  }
+  function select(form, prefix, open = true) {
+    const state = states.get(form);
+    state.selected = prefix;
+    for (const item of panels(form)) {
+      const selected = item.dataset.templatePrefix === prefix && !field(form, item.dataset.templatePrefix, "DELETE").checked;
+      item.hidden = !selected;
+      const task = row(form, item.dataset.templatePrefix);
+      task.classList.toggle("selected", selected);
+      task.querySelector("[data-select-template-task]").setAttribute("aria-pressed", String(selected));
+    }
+    form.querySelector(".template-detail-placeholder").hidden = !!prefix;
+    const workspace = form.closest(".workspace");
+    workspace.classList.toggle("has-selection", !!prefix && (open || !mobile()));
+    placeSave(form);
+  }
+  function updateRow(form, item) {
+    const prefix = item.dataset.templatePrefix, task = row(form, prefix), removed = field(form, prefix, "DELETE").checked;
+    task.hidden = removed;
+    const title = field(form, prefix, "title");
+    title.required = !removed;
+    task.querySelector("[data-preset-title]").textContent = title.value.trim() || "New task";
+    const flagged = field(form, prefix, "flagged").checked;
+    task.querySelector("[data-preset-flag]").hidden = !flagged;
+    item.querySelector("[data-preset-priority]").setAttribute("aria-pressed", String(flagged));
+    const count = lines(field(form, prefix, "subtasks")).length;
+    task.querySelector("[data-preset-subtask-count]").textContent = count ? count + (count === 1 ? " subtask" : " subtasks") : "";
+  }
+  function syncSubtasks(form, item) {
+    field(form, item.dataset.templatePrefix, "subtasks").value = [...item.querySelectorAll("[data-preset-step-title]")].map(input => input.value.trim()).filter(Boolean).join("\n");
+    updateRow(form, item);
+  }
+  function renderSubtasks(form, item) {
+    const list = item.querySelector(".preset-subtasks"), source = field(form, item.dataset.templatePrefix, "subtasks");
+    list.replaceChildren();
+    for (const [index, title] of lines(source).entries()) {
+      const li = document.createElement("li"); li.className = "step";
+      const line = document.createElement("div"); line.className = "step-row";
+      const check = document.createElement("span"); check.className = "template-task-check"; check.setAttribute("aria-hidden", "true");
+      const input = document.createElement("input"); input.type = "text"; input.name = item.dataset.templatePrefix + "-step-title-" + index; input.defaultValue = title; input.value = title; input.maxLength = 200;
+      input.dataset.presetStepTitle = ""; input.setAttribute("aria-label", "Subtask name");
+      const remove = document.createElement("button"); remove.type = "button"; remove.className = "icon-button trash-button";
+      remove.dataset.removePresetStep = ""; remove.setAttribute("aria-label", "Remove subtask");
+      remove.innerHTML = '<svg aria-hidden="true"><use href="#icon-trash"/></svg>';
+      line.append(check, input, remove); li.append(line); list.append(li);
+    }
+    item.querySelector(".preset-subtask-source").hidden = true;
+  }
+  function refresh(form) {
+    if (!states.has(form)) return;
+    for (const item of panels(form)) { updateRow(form, item); renderSubtasks(form, item); }
+    const items = active(form), state = states.get(form);
+    form.querySelector(".preset-list-empty").hidden = !!items.length;
+    form.querySelector(".preset-quick-add").hidden = form.dataset.templateKind === "task" && !!items.length;
+    if (!items.some(item => item.dataset.templatePrefix === state.selected)) select(form, items[0]?.dataset.templatePrefix || null, false);
+    else select(form, state.selected, form.closest(".workspace").classList.contains("has-selection"));
+  }
+  function ensureRows(form, count) {
+    const total = form.elements["items-TOTAL_FORMS"];
+    while (Number(total.value) < Math.min(500, count)) {
+      const index = total.value;
+      for (const [id, destination] of [["empty-template-row", ".template-task-rows"], ["empty-template-panel", ".preset-panels"]]) {
+        const fragment = document.createElement("template");
+        fragment.innerHTML = form.querySelector("#" + id).innerHTML.replaceAll("__prefix__", index);
+        form.querySelector(destination).append(fragment.content);
+      }
+      total.value = Number(total.value) + 1;
+    }
+  }
+  function addTask(form) {
+    const input = form.querySelector("#preset-quick-title"), title = input.value.trim();
+    if (!title) { input.focus(); return; }
+    if (form.dataset.templateKind === "task" && active(form).length) return;
+    const index = Number(form.elements["items-TOTAL_FORMS"].value);
+    if (index >= 500) return;
+    ensureRows(form, index + 1);
+    const prefix = "items-" + index;
+    field(form, prefix, "title").value = title; input.value = "";
+    refresh(form); select(form, prefix);
+  }
+  function addSubtask(form, item) {
+    const input = item.querySelector("[data-preset-new-step]"), title = input.value.trim();
+    if (!title) return;
+    const source = field(form, item.dataset.templatePrefix, "subtasks"), titles = lines(source);
+    if (titles.length >= 100) return;
+    source.value = [...titles, title].join("\n"); input.value = "";
+    renderSubtasks(form, item); updateRow(form, item); input.focus();
+  }
+  function init() {
+    for (const form of document.querySelectorAll(".template-list-editor")) {
+      const state = { selected: null, autoName: "", invalidTarget: null };
+      states.set(form, state); form.classList.add("is-enhanced");
+      const first = panels(form)[0];
+      if (form.dataset.templateKind === "folder" && first && !field(form, first.dataset.templatePrefix, "title").value.trim() && !first.querySelector(".errorlist")) {
+        field(form, first.dataset.templatePrefix, "DELETE").checked = true;
+      }
+      if (form.dataset.templateKind === "task" && first && form.elements.name.value === field(form, first.dataset.templatePrefix, "title").value) state.autoName = form.elements.name.value;
+      refresh(form);
+      const invalid = panels(form).find(item => item.querySelector(".errorlist"));
+      if (invalid) select(form, invalid.dataset.templatePrefix);
+      else if (form.dataset.templateKind === "task" && first && !form.querySelector(".template-list-pane .errorlist")) select(form, first.dataset.templatePrefix);
+      form.addEventListener("invalid", event => {
+        if (state.invalidTarget) return;
+        state.invalidTarget = event.target;
+        const item = event.target.closest(".template-task-panel");
+        if (item) select(form, item.dataset.templatePrefix);
+        else form.closest(".workspace").classList.remove("has-selection");
+        placeSave(form);
+        setTimeout(() => { state.invalidTarget = null; }, 0);
+      }, true);
+      form.addEventListener("submit", () => {
+        const quick = form.querySelector("#preset-quick-title");
+        if (quick.value.trim()) addTask(form);
+        for (const item of active(form)) if (item.querySelector("[data-preset-new-step]").value.trim()) addSubtask(form, item);
+      });
+    }
+  }
   document.addEventListener("click", event => {
-    const add = event.target.closest("[data-add-template-task]");
-    const remove = event.target.closest("[data-remove-template-task]");
-    if (add) {
-      const form = add.closest("form"), total = form.elements["items-TOTAL_FORMS"];
-      if (Number(total.value) >= 500) return;
-      const fragment = document.createElement("template");
-      fragment.innerHTML = form.querySelector("#empty-template-task").innerHTML.replaceAll("__prefix__", total.value);
-      const item = fragment.content.firstElementChild;
-      form.querySelector(".template-items").append(item); total.value = Number(total.value) + 1;
-      item.querySelector('input[name$="-title"]').focus();
-    }
+    const form = event.target.closest(".template-list-editor");
+    if (!form) return;
+    const choose = event.target.closest("[data-select-template-task]"), remove = event.target.closest("[data-remove-template-task]");
+    if (choose) select(form, choose.dataset.selectTemplateTask);
     if (remove) {
-      const item = remove.closest(".template-task");
-      item.querySelector('input[name$="-DELETE"]').checked = true;
-      item.hidden = true;
-      for (const control of item.querySelectorAll("input, textarea")) control.required = false;
+      field(form, remove.dataset.removeTemplateTask, "DELETE").checked = true; refresh(form);
     }
+    if (event.target.closest("[data-add-template-task]")) addTask(form);
+    if (event.target.closest("[data-preset-back]")) { form.closest(".workspace").classList.remove("has-selection"); placeSave(form); }
+    const item = event.target.closest(".template-task-panel");
+    if (!item) return;
+    if (event.target.closest("[data-preset-priority]")) {
+      const checkbox = field(form, item.dataset.templatePrefix, "flagged"); checkbox.checked = !checkbox.checked; updateRow(form, item);
+    }
+    const removeStep = event.target.closest("[data-remove-preset-step]");
+    if (removeStep) { removeStep.closest(".step").remove(); syncSubtasks(form, item); }
+    if (event.target.closest("[data-add-preset-subtask]")) addSubtask(form, item);
   });
+  document.addEventListener("input", event => {
+    const form = event.target.closest(".template-list-editor"), item = event.target.closest(".template-task-panel");
+    if (!form || !item) return;
+    if (event.target.matches("[data-preset-step-title]")) { syncSubtasks(form, item); return; }
+    if (event.target.name === item.dataset.templatePrefix + "-subtasks") renderSubtasks(form, item);
+    if (event.target.name === item.dataset.templatePrefix + "-title" && form.dataset.templateKind === "task") {
+      const state = states.get(form), name = form.elements.name;
+      if (!name.value || name.value === state.autoName) { name.value = event.target.value.slice(0, 80); state.autoName = name.value; }
+    }
+    updateRow(form, item);
+  });
+  document.addEventListener("keydown", event => {
+    if (event.isComposing || event.key !== "Enter") return;
+    const form = event.target.closest(".template-list-editor");
+    if (!form) return;
+    if (event.target.matches("#preset-quick-title")) { event.preventDefault(); addTask(form); }
+    else if (event.target.matches("[data-preset-new-step]")) { event.preventDefault(); addSubtask(form, event.target.closest(".template-task-panel")); }
+    else if (event.target.matches("[data-preset-step-title], .template-panel-title")) { event.preventDefault(); event.target.blur(); }
+  });
+  smallScreen.addEventListener("change", () => { for (const form of document.querySelectorAll(".template-list-editor")) placeSave(form); });
+  window.daylistTemplateEditor = { ensureRows, refresh };
+  document.addEventListener("daylist:ready", init); init();
 })();
 </script>

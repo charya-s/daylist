@@ -542,3 +542,56 @@ h1 { font: 500 clamp(34px, 4vw, 56px)/1.05 Georgia, serif; letter-spacing: -.045
 .folder-template-help { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
 @media (max-width: 1030px) { .workspace.template-view { grid-template-columns: 190px minmax(0, 1fr); } }
 @media (max-width: 550px) { .workspace.template-view { display: block; } .template-page-header { align-items: flex-start; flex-wrap: wrap; } }
+
+.quick-add-row { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 23px; }
+.quick-add-row > .quick-add { flex: 1; min-width: 0; margin-bottom: 0; }
+.quick-task-templates { position: relative; flex: none; }
+.quick-task-templates > summary { width: 40px; height: 42px; border: 1px solid var(--line); background: var(--field); }
+.task-template-options { padding: 5px; }
+.template-create-actions, .preset-header-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.template-card-actions .use-task-template { margin: 0; }
+.template-card-actions .delete-preset { margin-left: auto; }
+.template-editor.template-list-editor { display: contents; }
+.workspace.template-editing { grid-template-columns: 222px minmax(0, 1fr) minmax(320px, 34%); }
+.preset-heading { flex: 1; min-width: 140px; }
+.template-name-input { border-color: transparent !important; background: transparent !important; padding: 0 3px !important; font: 500 28px/1.1 Georgia, serif; min-height: 36px !important; }
+.template-name-input:focus { border-color: var(--accent) !important; }
+.preset-header { align-items: flex-start; }
+.preset-save-button { font-size: 12px; padding: 7px 10px; min-height: 36px; }
+.template-task-check { width: 16px; height: 16px; flex: none; border: 1px solid var(--muted); border-radius: 5px; margin: 0 9px; }
+.template-row-button { border: 0; background: transparent; text-align: left; color: inherit; font: inherit; }
+.template-task-row.selected { background: var(--selected); }
+.template-detail-pane { position: relative; }
+.template-task-panel.template-task { border: 0; border-radius: 0; margin: 0; padding: 0; background: transparent; }
+.template-panel-title { border-color: transparent !important; padding-inline: 0 !important; background: transparent !important; font: 500 22px/1.22 Georgia, serif; }
+.template-panel-title:focus { border-color: var(--accent) !important; }
+.template-detail-placeholder { min-height: 65vh; align-content: center; }
+.preset-panel-save-slot { display: inline-flex; margin-left: auto; }
+.template-list-editor.is-enhanced .preset-subtask-source { display: none; }
+.preset-subtasks .step-row > input { flex: 1; min-width: 0; padding: 6px 0; border-color: transparent; background: transparent; }
+.preset-subtasks .step-row > input:focus { border-color: var(--accent); }
+.template-notes { margin-top: 20px; }
+.template-notes textarea { resize: vertical; min-height: 70px; }
+.preset-add-step { align-items: center; }
+.preset-steps { margin-top: 16px; }
+@media (max-width: 1030px) { .workspace.template-editing { grid-template-columns: 190px minmax(0, 1fr) minmax(300px, 38%); } }
+@media (max-width: 820px) {
+  .workspace.template-editing { grid-template-columns: 190px minmax(0, 1fr); }
+  .template-editing.has-selection .template-list-pane { display: none; }
+  .template-editing:not(.has-selection) .template-detail-pane { display: none; }
+  .template-editing .back-detail { display: inline-flex; margin-right: auto; }
+}
+@media (max-width: 550px) { .workspace.template-editing { display: block; } }
+
+.preset-header-actions, .preset-save-home { display: inline-flex; align-items: center; min-height: 36px; }
+.matrix-title-editor { flex: 1; min-width: 0; }
+.matrix-title { border: 0; padding: 0; background: transparent; font: inherit; text-align: left; color: inherit; overflow-wrap: anywhere; }
+.matrix-title:hover { color: var(--accent); }
+.matrix-title-editor .matrix-title-input { padding: 0 3px; min-height: 30px; font: 500 23px/1.2 Georgia, serif; border-radius: 3px; background: transparent; }
+.matrix-title-editor.is-editing h2 { display: none; }
+.matrix-title-editor .errorlist { margin-top: 5px; }
+
+.preset-header > .preset-header-actions { display: inline-flex; align-items: center; flex-wrap: nowrap; gap: 9px; min-height: 36px; }
+.preset-header > .preset-heading { display: block; }
+.preset-heading .template-name-input { display: block; }
+.preset-heading .open-count { display: block; margin-top: 3px; }

@@ -17,8 +17,8 @@ from django.utils.timezone import localdate, now
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .models import Subtask, Task, TaskList, TaskListTemplate
-from .folder_templates import TemplateForm, TemplateTasks, folder_snapshot, editor_initial, instantiate_template
+from .models import Subtask, Task, TaskList, TaskListTemplate, MatrixHeading
+from .folder_templates import TemplateForm, TemplateTasks, folder_snapshot, editor_initial, instantiate_template, TaskTemplateTasks, task_snapshot, instantiate_task_template
 from .planner import month_dates, calendar_context
 from .recurrence import complete_task
 from .trash import trash_folder, restore_folder as restore_trashed_folder
@@ -77,6 +77,10 @@ class TitleForm(forms.ModelForm):
 class FolderForm(TaskForm):
     class Meta(TaskForm.Meta):
         fields = ["task_list"]
+
+
+class MatrixTitleForm(forms.Form):
+    name = forms.CharField(max_length=80)
 
 
 class MatrixPlacementForm(forms.ModelForm):
@@ -252,7 +256,8 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
     }
     all_owned = Task.objects.filter(owner=request.user)
     owned = all_owned.filter(deleted_at__isnull=True)
-    folder_templates = TaskListTemplate.objects.filter(owner=request.user)
+    folder_templates = TaskListTemplate.objects.filter(owner=request.user, kind=TaskListTemplate.Kind.FOLDER)
+    task_templates = TaskListTemplate.objects.filter(owner=request.user, kind=TaskListTemplate.Kind.TASK)
     all_lists = TaskList.objects.filter(owner=request.user)
     lists = all_lists.filter(deleted_at__isnull=True)
     trashed_steps = Subtask.objects.filter(task__owner=request.user, task__deleted_at__isnull=True, deleted_at__isnull=False)
@@ -308,6 +313,8 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
     add_subtask_form = SubtaskForm(prefix="new-step")
     subtask_form = None
     edited_subtask_id = None
+    quadrant_title_form = None
+    editing_quadrant = None
 
     def back(task_id=None):
         if task_id and not visible.filter(pk=task_id).exists():
@@ -340,6 +347,15 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
             else:
                 return HttpResponseBadRequest("Unknown Trash action.")
             return redirect(view_url)
+        elif action == "rename-quadrant":
+            editing_quadrant = request.POST.get("quadrant", "")
+            if not matrix or editing_quadrant not in {key for key, label in Task.MatrixQuadrant.choices if key}:
+                return HttpResponseBadRequest("Choose a matrix quadrant.")
+            quadrant_title_form = MatrixTitleForm(request.POST, prefix="quadrant-" + editing_quadrant)
+            if quadrant_title_form.is_valid():
+                MatrixHeading.objects.update_or_create(owner=request.user, quadrant=editing_quadrant,
+                                                      defaults={"name": quadrant_title_form.cleaned_data["name"]})
+                return back(selected_id)
         elif action == "reorder-tasks":
             if query or matrix or calendar_view or completed:
                 return HttpResponseBadRequest("Open All, Today, or a folder without a search to rearrange tasks.")
@@ -354,6 +370,12 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
                     setattr(task, position_field, positions[task.pk])
                 Task.objects.bulk_update(reorderable, [position_field])
             return back(selected_id)
+        elif action == "add-task-template":
+            if completed or calendar_view:
+                return HttpResponseBadRequest("Open a task list to use a task template.")
+            preset = get_object_or_404(task_templates, pk=valid_id(request.POST.get("task_template")))
+            task = instantiate_task_template(request.user, preset, scoped_list, due=today if today_only else None)
+            return back(task.pk)
         elif action == "add":
             quick_form = QuickTaskForm(request.POST)
             if quick_form.is_valid():
@@ -538,11 +560,18 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
         done_steps=Count("subtasks", filter=Q(subtasks__done=True, subtasks__deleted_at__isnull=True)),
     ).order_by(*ordering))
     quadrants = [
-        {"key": "do", "title": "Do first", "description": "Important & urgent", "tasks": []},
-        {"key": "schedule", "title": "Schedule", "description": "Important & not urgent", "tasks": []},
-        {"key": "batch", "title": "Delegate or batch", "description": "Less important & urgent", "tasks": []},
-        {"key": "reconsider", "title": "Reconsider", "description": "Less important & not urgent", "tasks": []},
+        {"key": "do", "title": "Important & Urgent", "description": "Important & urgent", "tasks": []},
+        {"key": "schedule", "title": "Important & Not Urgent", "description": "Important & not urgent", "tasks": []},
+        {"key": "batch", "title": "Not Important & Urgent", "description": "Less important & urgent", "tasks": []},
+        {"key": "reconsider", "title": "Not Important & Not Urgent", "description": "Less important & not urgent", "tasks": []},
     ]
+    custom_titles = dict(MatrixHeading.objects.filter(owner=request.user).values_list("quadrant", "name")) if matrix else {}
+    for quadrant in quadrants:
+        quadrant["title"] = custom_titles.get(quadrant["key"], quadrant["title"])
+        quadrant["title_form"] = quadrant_title_form if editing_quadrant == quadrant["key"] else MatrixTitleForm(initial={"name": quadrant["title"]}, prefix="quadrant-" + quadrant["key"])
+    matrix_choices = [("", Task.MatrixQuadrant.AUTO.label)] + [(quadrant["key"], quadrant["title"]) for quadrant in quadrants]
+    if matrix_form is not None and matrix:
+        matrix_form.fields["matrix_quadrant"].choices = matrix_choices
     if matrix:
         for task in ordered:
             if not task.done:
@@ -560,14 +589,14 @@ def tasks(request, today_only=False, list_id=None, matrix=False, trash=False, co
     return render(request, "tasks.html", {
         **planner, "calendar_view": calendar_view, "folder_tasks": ordered if active_list else [],
         "can_reorder": can_reorder, "can_unschedule": can_reorder and not today_only,
-        "folder_templates": folder_templates,
+        "folder_templates": folder_templates, "task_templates": task_templates,
         "folder_groups": group_tasks(ordered, today, include_no_date=True) if active_list else [],
         "view_url": view_url, "view_path": view_path, "task_separator": "&" if filters else "?",
         "query": query, "clear_url": clear_url, "matrix": matrix, "trash": trash, "completed": completed,
         "completed_count": owned.filter(done=True).count(),
         "trash_count": trash_count, "trash_tasks": trash_tasks, "trash_folders": trash_folders,
         "trash_steps": trash_steps, "trash_items_count": len(trash_tasks) + len(trash_folders) + len(trash_steps), "matrix_folder": matrix_folder,
-        "quadrants": quadrants, "matrix_choices": Task.MatrixQuadrant.choices, "matrix_form": matrix_form, "result_count": sum(not task.done for task in ordered) if matrix else len(ordered),
+        "quadrants": quadrants, "matrix_choices": matrix_choices, "matrix_form": matrix_form, "result_count": sum(not task.done for task in ordered) if matrix else len(ordered),
         "active_list": active_list, "today_only": today_only,
         "view_title": "Trash" if trash else "Completed" if completed else "Calendar" if calendar_view else "Matrix" if matrix else active_list.name if active_list else "Today" if today_only else "All tasks",
         "today": today, "quick_dates": quick_dates, "next_week": quick_dates["next-week"], "selected": selected, "groups": group_tasks(ordered, today, include_no_date=bool(can_reorder and not today_only and ordered)),
@@ -588,13 +617,13 @@ def template_workspace(request):
     lists = TaskList.objects.filter(owner=request.user, deleted_at__isnull=True)
     return {
         "templates_active": True, "view_title": "Templates", "view_url": reverse("templates"),
-        "folder_templates": presets, "lists": lists.annotate(open_count=Count("tasks", filter=Q(tasks__done=False, tasks__deleted_at__isnull=True, tasks__owner=request.user))),
+        "template_presets": presets, "folder_templates": presets.filter(kind=TaskListTemplate.Kind.FOLDER), "task_templates": presets.filter(kind=TaskListTemplate.Kind.TASK), "lists": lists.annotate(open_count=Count("tasks", filter=Q(tasks__done=False, tasks__deleted_at__isnull=True, tasks__owner=request.user))),
         "all_count": owned.filter(done=False).count(), "today_count": owned.filter(done=False, due=localdate()).count(),
         "completed_count": owned.filter(done=True).count(),
         "trash_count": Task.objects.filter(owner=request.user, deleted_at__isnull=False).count() +
                        TaskList.objects.filter(owner=request.user, deleted_at__isnull=False).count() +
                        Subtask.objects.filter(task__owner=request.user, task__deleted_at__isnull=True, deleted_at__isnull=False).count(),
-        "add_list_form": NewFolderForm(prefix="new-list", templates=presets),
+        "add_list_form": NewFolderForm(prefix="new-list", templates=presets.filter(kind=TaskListTemplate.Kind.FOLDER)),
     }
 
 
@@ -616,14 +645,28 @@ def template_list(request):
 @require_http_methods(["GET", "POST"])
 def template_editor(request, template_id=None):
     item = get_object_or_404(TaskListTemplate, owner=request.user, pk=template_id) if template_id else TaskListTemplate(owner=request.user)
+    if not template_id:
+        kind = "task" if request.GET.get("task") else request.GET.get("kind", "folder")
+        if kind not in TaskListTemplate.Kind.values:
+            return HttpResponseBadRequest("Choose a folder or task template.")
+        item.kind = kind
     initial_items = item.tasks if template_id else []
     initial = {}
     if request.method == "GET" and request.GET.get("folder"):
+        if item.kind != TaskListTemplate.Kind.FOLDER:
+            return HttpResponseBadRequest("Use a folder template for a folder.")
         folder = get_object_or_404(TaskList, owner=request.user, deleted_at__isnull=True, pk=valid_id(request.GET.get("folder")))
         initial = {"name": folder.name, "color": folder.color}
         initial_items = folder_snapshot(folder)
+    if request.method == "GET" and request.GET.get("task"):
+        source = get_object_or_404(Task, owner=request.user, deleted_at__isnull=True, pk=valid_id(request.GET.get("task")))
+        initial = {"name": source.title[:80]}
+        initial_items = [task_snapshot(source)]
     form = TemplateForm(request.POST if request.method == "POST" else None, instance=item, initial=initial)
-    tasks = TemplateTasks(request.POST if request.method == "POST" else None, initial=editor_initial(initial_items), prefix="items")
+    if item.kind == TaskListTemplate.Kind.TASK:
+        form.fields["color"].widget = forms.HiddenInput()
+    task_forms = TaskTemplateTasks if item.kind == TaskListTemplate.Kind.TASK else TemplateTasks
+    tasks = task_forms(request.POST if request.method == "POST" else None, initial=editor_initial(initial_items), prefix="items")
     if request.method == "POST":
         form_valid = form.is_valid()
         tasks_valid = tasks.is_valid()

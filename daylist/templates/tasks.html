@@ -2,7 +2,7 @@
 {% block title %}{{ view_title }} · Daylist{% endblock %}
 {% block header %}{% endblock %}
 {% block content %}
-<div class="workspace{% if matrix %} matrix-view{% endif %}{% if calendar_view %} calendar-view{% endif %}{% if trash %} trash-view{% endif %}{% if selected %} has-selection{% endif %}{% if templates_active %} template-view{% endif %}">
+<div class="workspace{% if matrix %} matrix-view{% endif %}{% if calendar_view %} calendar-view{% endif %}{% if trash %} trash-view{% endif %}{% if selected %} has-selection{% endif %}{% if templates_active %} template-view{% endif %}{% if editing_template %} template-editing{% endif %}">
   <aside class="sidebar">
     <a href="{% url 'all' %}" class="brand"><span class="brand-mark"><svg><use href="#icon-check"/></svg></span>Daylist</a>
     <nav aria-label="Task views">
@@ -10,7 +10,6 @@
       <a href="{% url 'today' %}" {% if today_only %}aria-current="page"{% endif %}><svg><use href="#icon-today"/></svg>Today <span class="nav-count">{{ today_count }}</span></a>
       <a href="{% url 'matrix' %}" {% if matrix %}aria-current="page"{% endif %}><svg><use href="#icon-matrix"/></svg>Matrix</a>
       <a href="{% url 'calendar' %}" {% if calendar_view %}aria-current="page"{% endif %}><svg><use href="#icon-today"/></svg>Calendar</a>
-      <a href="{% url 'templates' %}" {% if templates_active %}aria-current="page"{% endif %}><svg><use href="#icon-list"/></svg>Templates</a>
       <div class="lists list-heading">
         <span class="folder-heading">Folders</span>
         <button type="button" class="icon-button" id="add-folder" aria-label="Add folder" aria-haspopup="dialog" aria-controls="folder-dialog"><svg aria-hidden="true"><use href="#icon-plus"/></svg></button>
@@ -22,7 +21,8 @@
       {% endfor %}
     </nav>
     <div class="sidebar-bottom">
-      <nav aria-label="Completed and Trash">
+      <nav aria-label="Templates, Completed, and Trash">
+      <a href="{% url 'templates' %}" {% if templates_active %}aria-current="page"{% endif %}><svg><use href="#icon-list"/></svg>Templates</a>
         <a href="{% url 'completed' %}" {% if completed %}aria-current="page"{% endif %}><svg><use href="#icon-check"/></svg>Completed <span class="nav-count">{{ completed_count }}</span></a>
       <a href="{% url 'trash' %}" {% if trash %}aria-current="page"{% endif %}><svg><use href="#icon-trash"/></svg>Trash <span class="nav-count">{{ trash_count }}</span></a>
       </nav>
@@ -46,7 +46,7 @@
             <h1><button type="button" class="folder-title" title="Rename folder" aria-label="Rename folder {{ active_list.name }}" hidden>{{ view_title }}</button></h1>
             <label class="sr-only" for="{{ rename_form.name.id_for_label }}">Folder name</label>
             <input type="text" class="folder-title-input" id="{{ rename_form.name.id_for_label }}" name="{{ rename_form.name.html_name }}" maxlength="80" required value="{{ rename_form.name.value|default_if_none:'' }}" data-original="{{ active_list.name }}" {% if rename_form.errors %}aria-invalid="true" aria-describedby="folder-title-errors"{% endif %}>
-            <div id="folder-title-errors">{{ rename_form.name.errors }}</div>
+            <div id="folder-title-errors" class="title-errors">{{ rename_form.name.errors }}</div>
             <noscript><button class="quiet" type="submit">Save folder name</button></noscript>
           </form>
         {% else %}
@@ -102,6 +102,7 @@
       {% include "deadline-calendar.html" %}
     {% else %}
     {% if not completed %}
+    <div class="quick-add-row">
     <form class="quick-add" method="post" data-today="{{ quick_dates.today|date:'Y-m-d' }}" data-tomorrow="{{ quick_dates.tomorrow|date:'Y-m-d' }}" data-next-week="{{ next_week|date:'Y-m-d' }}">
       {% csrf_token %}
       <div class="quick-fields">
@@ -116,14 +117,17 @@
       </div>
       {{ quick_form.errors }}
     </form>
-
+    {% if task_templates %}<details class="quick-task-templates" data-dismiss-outside><summary class="icon-button" aria-label="Use a task template" title="Task templates"><svg><use href="#icon-list"/></svg></summary><div class="menu-panel task-template-options">
+      {% for preset in task_templates %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="add-task-template"><input type="hidden" name="task_template" value="{{ preset.pk }}"><button type="submit" class="folder-option">{{ preset.name }}</button></form>{% endfor %}
+    </div></details>{% endif %}
+    </div>
     {% endif %}
     {% if matrix %}
       <p class="matrix-hint">Tasks start sorted by flag and due date. Drag cards between quadrants to choose your own placement, or use the card’s Move menu. Choose Automatic to reset.</p>
       <div class="matrix-grid">
         {% for quadrant in quadrants %}
           <section class="matrix-quadrant" data-quadrant="{{ quadrant.key }}" aria-labelledby="quadrant-{{ quadrant.key }}">
-            <header><div><h2 id="quadrant-{{ quadrant.key }}">{{ quadrant.title }}</h2><p>{{ quadrant.description }}</p></div><span class="group-count">{{ quadrant.tasks|length }}</span></header>
+            <header>{% include "matrix-title.html" %}<span class="group-count">{{ quadrant.tasks|length }}</span></header>
             <ul class="task-list">
               {% for task in quadrant.tasks %}{% include "task.html" %}{% empty %}<li class="quadrant-empty">{% if query %}No matching tasks{% else %}No tasks here{% endif %}</li>{% endfor %}
             </ul>
@@ -165,6 +169,7 @@
   </main>
   {% endblock %}
 
+  {% block workspace_detail %}
   {% if selected %}
     {% include "detail.html" %}
   {% else %}
@@ -172,6 +177,7 @@
       <div class="empty"><span class="empty-icon"><svg><use href="#icon-notes"/></svg></span><h2>Task details</h2><p>Select a task to add notes, set a due date, or break it into subtasks.</p></div>
     </aside>
   {% endif %}
+  {% endblock %}
 </div>
 {% include "folder-dialog.html" %}
 {% endblock %}

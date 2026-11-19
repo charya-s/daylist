@@ -1,0 +1,5 @@
+<li class="task template-task-row" data-template-prefix="{{ item.prefix }}" {% if item.DELETE.value %}hidden{% endif %}>
+  <span class="template-task-check" aria-hidden="true"></span>
+  <button type="button" class="task-link template-row-button" data-select-template-task="{{ item.prefix }}"><span class="task-title" data-preset-title>{{ item.title.value|default:"New task" }}</span><span class="task-meta"><span class="flag-mark" data-preset-flag {% if not item.flagged.value %}hidden{% endif %}><svg><use href="#icon-flag"/></svg></span><span data-preset-subtask-count></span></span></button>
+  <button type="button" class="icon-button trash-button" data-remove-template-task="{{ item.prefix }}" aria-label="Remove preset task" title="Remove task"><svg><use href="#icon-trash"/></svg></button>
+</li>

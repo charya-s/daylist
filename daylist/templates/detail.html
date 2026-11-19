@@ -7,6 +7,7 @@
         <input type="hidden" name="task_id" value="{{ selected.pk }}">
         <button class="icon-button priority-toggle" name="action" value="{% if selected.flagged %}unflag{% else %}flag{% endif %}" aria-label="Priority flag" aria-pressed="{{ selected.flagged|yesno:'true,false' }}" title="{% if selected.flagged %}Remove priority flag{% else %}Flag as priority{% endif %}"><svg aria-hidden="true"><use href="#icon-flag"/></svg></button>
       </form>
+      <a class="icon-button" href="{% url 'new-template' %}?task={{ selected.pk }}" aria-label="Save task as template" title="Save task as template"><svg><use href="#icon-list"/></svg></a>
       {% include "trash-button.html" with task=selected delete_action="delete" delete_title=selected.title %}
     </div>
     <a class="icon-button close-detail" href="{{ view_url }}" aria-label="Close task details" title="Close task details"><svg><use href="#icon-close"/></svg></a>

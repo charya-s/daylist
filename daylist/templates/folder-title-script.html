@@ -1,11 +1,10 @@
 <script>
 (() => {
   function init() {
-    const form = document.querySelector(".folder-title-editor");
-    if (!form) return;
-    const button = form.querySelector(".folder-title");
-    const input = form.querySelector(".folder-title-input");
-    const errors = form.querySelector("#folder-title-errors");
+    for (const form of document.querySelectorAll(".folder-title-editor, .matrix-title-editor")) {
+    const button = form.querySelector(".folder-title, .matrix-title");
+    const input = form.querySelector(".folder-title-input, .matrix-title-input");
+    const errors = form.querySelector(".title-errors");
     let saving = false;
     function edit() {
       form.classList.add("is-editing");
@@ -52,6 +51,7 @@
     else {
       input.hidden = true;
       button.hidden = false;
+    }
     }
   }
   document.addEventListener("daylist:ready", init);
